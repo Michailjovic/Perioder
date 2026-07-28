@@ -1,7 +1,9 @@
 {
   "domain": "perioder",
   "name": "Perioder",
-  "codeowners": ["@Michailjovic"],
+  "codeowners": [
+    "@Michailjovic"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/Michailjovic/Perioder",
@@ -9,5 +11,5 @@
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/Michailjovic/Perioder/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.1.1"
 }

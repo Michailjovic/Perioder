@@ -1,18 +1,20 @@
 # Perioder v0.1.0 - test dashboard
 #
-# How to install:
-#   1. When you set up the Perioder integration (Settings > Devices &
-#      Services > Add Integration > Perioder), type exactly "Test" as the
-#      name. That makes every entity ID below match without any editing.
-#   2. Settings > Dashboards > Add Dashboard > "New dashboard from scratch",
-#      give it any title, create it.
-#   3. Open it > pencil icon (Edit Dashboard) > three-dot menu > "Edit in
-#      YAML" > delete everything there > paste this whole file > Save.
-#   4. Call perioder.log_period_start once (Developer Tools > Actions) so
-#      the cards below stop showing "unknown".
+# Setup:
+#   1. Integration must be named exactly "Test" during setup (Settings >
+#      Devices & Services > Add Integration > Perioder) - every entity ID
+#      below depends on that.
+#   2. Settings > Dashboards > Add Dashboard > "New dashboard from scratch"
+#      > open it > pencil icon (Edit Dashboard) > three-dot menu >
+#      "Edit in YAML" > paste this whole file > Save.
 #
-# If you used a different name than "Test", replace "test" in every
-# entity_id below with your own slug (check Developer Tools > States).
+# That's it - no helpers, no scripts. "Zapsat začátek periody" below is a
+# native date entity from the integration itself: click it, pick a date
+# (today, or an earlier one if you're only entering it the next day), done.
+# Same for the PMS dropdown - pick a value, it applies immediately.
+#
+# If you used a different integration name than "Test", replace "test" in
+# every entity_id below with your own slug (check Developer Tools > States).
 
 title: Perioder (test)
 views:
@@ -21,11 +23,9 @@ views:
     cards:
       - type: markdown
         content: >-
-          **Perioder v0.1.0 - test dashboard.** Log the first data point via
-          Developer Tools > Actions > `perioder.log_period_start` (pick the
-          cycle owner from the dropdown, optionally backdate). Try
-          `perioder.set_pms_override` the same way to force the PMS card on
-          or off without waiting for the real date.
+          **Perioder v0.1.0 - test dashboard.** Klikni na "Zapsat začátek
+          periody" a vyber datum - i zpětně, pokud se to dozvíš až druhý
+          den. "PMS přebití" testuje PMS okno bez čekání na skutečné datum.
 
       - type: glance
         title: Stav cyklu
@@ -54,3 +54,11 @@ views:
           - entity: binary_sensor.test_pms_active
             name: "PMS okno (admin/testing pohled)"
             secondary_info: last-changed
+
+      - type: entities
+        title: Ovládání
+        entities:
+          - entity: date.test_last_period_start
+            name: Zapsat začátek periody
+          - entity: select.test_pms_override
+            name: PMS přebití

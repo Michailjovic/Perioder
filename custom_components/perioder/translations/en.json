@@ -135,6 +135,21 @@
       "pms_active": {
         "name": "PMS window"
       }
+    },
+    "date": {
+      "last_period_start": {
+        "name": "Log period start"
+      }
+    },
+    "select": {
+      "pms_override": {
+        "name": "PMS override",
+        "state": {
+          "auto": "Automatic",
+          "active": "Force active",
+          "inactive": "Force inactive"
+        }
+      }
     }
   }
 }

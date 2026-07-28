@@ -17,19 +17,24 @@ Home Assistant custom integration for menstrual cycle and contraception tracking
 
 1. During setup, name it exactly **Test** (this becomes the device name and
    determines entity IDs - the ready-made dashboard below assumes this name).
-2. Call `perioder.log_period_start` (Developer Tools > Actions, pick the cycle
-   owner from the dropdown), optionally with a backdated `date:`. Without this,
-   all sensors stay "unknown".
-3. Add a full test dashboard in one go: Settings > Dashboards > Add Dashboard >
+2. Add a full test dashboard in one go: Settings > Dashboards > Add Dashboard >
    "New dashboard from scratch" > open it > pencil icon (Edit Dashboard) >
    three-dot menu > "Edit in YAML" > paste the contents of `dashboard_test.yaml`
-   > Save. (`lovelace_example.yaml` is the same cards as a single card, for
-   dropping into a dashboard you already have.)
-4. Try `perioder.set_pms_override` (`active` / `inactive` / `auto`) to see the
-   PMS window sensor react without waiting for the real date.
-5. Settings > Devices & Services > Perioder > Configure lets you edit settings
+   > Save. No helpers or scripts needed - the date input and PMS override are
+   native entities the integration provides itself. (`lovelace_example.yaml`
+   is the same sensor cards as a single card, for dropping into a dashboard
+   you already have.)
+3. From the dashboard: click the date entity and pick a date (today, or
+   earlier if you're only entering it the next day) - that logs the period
+   start immediately, no separate confirm step. The PMS dropdown forces the
+   PMS window on/off/auto for testing without waiting for the real date.
+4. Settings > Devices & Services > Perioder > Configure lets you edit settings
    and add supporters (notification target, categories, detail level) - only
    reachable by an HA administrator, by design.
+
+Prefer Developer Tools > Actions, or calling this from an automation/voice
+command/NFC tag? `perioder.log_period_start` and `perioder.set_pms_override`
+still exist and do exactly the same thing as the entities above.
 
 ## Current scope (v0.1.0)
 
@@ -38,7 +43,10 @@ Home Assistant custom integration for menstrual cycle and contraception tracking
   contraception, symptoms) lives in a separate per-entry Store.
 - Sensors: cycle day, phase, fertility, next period.
 - Binary sensors: period active, PMS window (with manual override).
-- Services: `log_period_start`, `set_pms_override`.
+- Date entity: log/backdate the period start directly from the UI.
+- Select entity: PMS override (auto / active / inactive).
+- Services: `log_period_start`, `set_pms_override` (same effect as the
+  entities above, for automations/voice/NFC).
 
 Not yet implemented: contraception reminders/logic, the prediction calendar, symptom logging, and the supporter notification engine. See `CHANGELOG.md` and `ANALYZA-A-ROADMAP.md`.
 

@@ -1,10 +1,13 @@
 """The Perioder integration.
 
 v0.1.0 adds just enough on top of the M1 foundation to be testable end to
-end: read-only cycle sensors, a way to feed in test data
-(`perioder.log_period_start`), and a way to poke the PMS window for testing
-(`perioder.set_pms_override`). Contraception logic, the calendar, symptoms,
-and the supporter notification engine are not in yet - see CHANGELOG.md.
+end: read-only cycle sensors, a settable `date` entity to log/backdate the
+period start, and a `select` entity to poke the PMS window for testing.
+The equivalent services (`perioder.log_period_start`,
+`perioder.set_pms_override`) still exist for automations/voice/NFC and call
+the exact same storage methods as the entities. Contraception logic, the
+calendar, symptoms, and the supporter notification engine are not in yet -
+see CHANGELOG.md.
 
 Settings and supporters live in the config entry (data/options) and are
 handled by config_flow.py + settings.py; this module only owns the runtime
@@ -30,7 +33,12 @@ from .storage import PerioderData
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.DATE,
+    Platform.SELECT,
+]
 
 SERVICE_LOG_PERIOD_START = "log_period_start"
 SERVICE_SET_PMS_OVERRIDE = "set_pms_override"

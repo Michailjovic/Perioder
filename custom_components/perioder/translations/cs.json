@@ -135,6 +135,21 @@
       "pms_active": {
         "name": "PMS okno"
       }
+    },
+    "date": {
+      "last_period_start": {
+        "name": "Zapsat začátek periody"
+      }
+    },
+    "select": {
+      "pms_override": {
+        "name": "PMS přebití",
+        "state": {
+          "auto": "Automaticky",
+          "active": "Vynutit aktivní",
+          "inactive": "Vynutit neaktivní"
+        }
+      }
     }
   }
 }
