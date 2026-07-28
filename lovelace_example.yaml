@@ -1,0 +1,27 @@
+# Example dashboard card for testing v0.1.0.
+#
+# Entity IDs depend on the "Name" you gave the cycle owner during setup -
+# Home Assistant slugifies it (e.g. name "Alina" -> sensor.alina_cycle_day).
+# Check Settings > Devices & Services > Perioder > (your device) for the
+# exact entity IDs, or Developer Tools > States, then adjust below.
+#
+# binary_sensor.<name>_pms_active is included here only because this card
+# is for the admin/testing view. The design intent (see
+# ANALYZA-A-ROADMAP.md, section 2.2/2.9) is that PMS is supporter-facing
+# only and would normally be left off the cycle owner's own dashboard.
+
+type: entities
+title: Perioder (test)
+entities:
+  - entity: sensor.alina_cycle_day
+    name: Cycle day
+  - entity: sensor.alina_phase
+    name: Phase
+  - entity: sensor.alina_fertility
+    name: Fertility
+  - entity: sensor.alina_next_period
+    name: Next period (days)
+  - entity: binary_sensor.alina_period_active
+    name: Period active
+  - entity: binary_sensor.alina_pms_active
+    name: "PMS window (admin/testing view only)"

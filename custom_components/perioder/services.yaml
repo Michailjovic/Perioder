@@ -1,0 +1,49 @@
+log_period_start:
+  name: Log period start
+  description: >-
+    Mark the start of a period for one cycle owner. Defaults to today if
+    date is omitted - accepts a past date for backdating ("she told me it
+    started yesterday").
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    date:
+      name: Date
+      description: Optional backdated start date.
+      example: "2026-07-22"
+      selector:
+        date:
+
+set_pms_override:
+  name: Set PMS window override
+  description: >-
+    Manually force the PMS window on or off for the current cycle, or clear
+    the override to go back to the automatic window. Also handy for testing
+    the PMS-facing dashboard/notifications without waiting for the real date.
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    value:
+      name: Value
+      description: "auto = automatic window, active = force on, inactive = force off."
+      required: true
+      example: "auto"
+      selector:
+        select:
+          options:
+            - label: Automatic
+              value: "auto"
+            - label: Force active
+              value: "active"
+            - label: Force inactive
+              value: "inactive"

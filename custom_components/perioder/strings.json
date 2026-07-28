@@ -1,0 +1,140 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Perioder",
+        "description": "Set up tracking for one cycle owner. You can add supporters (partners, roommates, family - anyone) afterwards in Settings > Devices & Services > Perioder > Configure.",
+        "data": {
+          "name": "Name (for your own reference)",
+          "cycle_length": "Cycle length (days)",
+          "period_duration": "Period duration (days)",
+          "goal": "Goal",
+          "pms_window_days": "PMS window (days before period)",
+          "regimen_type": "Contraception regimen",
+          "pack_size": "Pack size in days (custom regimen only)",
+          "pause_days": "Pause days (custom regimen only)",
+          "reminder_time": "Daily contraception reminder time"
+        }
+      }
+    },
+    "error": {
+      "invalid_length": "Cycle length must be longer than period duration."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "menu_options": {
+          "settings": "Edit settings",
+          "supporters": "Manage supporters"
+        }
+      },
+      "settings": {
+        "title": "Perioder settings",
+        "data": {
+          "cycle_length": "Cycle length (days)",
+          "period_duration": "Period duration (days)",
+          "goal": "Goal",
+          "pms_window_days": "PMS window (days before period)",
+          "regimen_type": "Contraception regimen",
+          "pack_size": "Pack size in days (custom regimen only)",
+          "pause_days": "Pause days (custom regimen only)",
+          "reminder_time": "Daily contraception reminder time"
+        }
+      },
+      "supporters": {
+        "title": "Manage supporters",
+        "menu_options": {
+          "add_supporter": "Add a supporter",
+          "remove_supporter": "Remove a supporter",
+          "finish": "Done"
+        }
+      },
+      "add_supporter": {
+        "title": "Add a supporter",
+        "description": "A supporter only sees the categories you subscribe them to, at the detail level you pick.",
+        "data": {
+          "device_id": "Notify device",
+          "categories": "Categories to notify about",
+          "detail_level": "Detail level"
+        }
+      },
+      "remove_supporter": {
+        "title": "Remove a supporter",
+        "data": {
+          "supporter_id": "Supporter"
+        }
+      }
+    },
+    "error": {
+      "invalid_length": "Cycle length must be longer than period duration."
+    }
+  },
+  "selector": {
+    "goal": {
+      "options": {
+        "track": "Just tracking",
+        "avoid": "Avoiding pregnancy",
+        "plan": "Planning pregnancy"
+      }
+    },
+    "regimen_type": {
+      "options": {
+        "21_7": "21 active days + 7 pause days",
+        "24_4": "24 active days + 4 pause days",
+        "continuous": "Continuous (no pause)",
+        "custom": "Custom"
+      }
+    },
+    "supporter_category": {
+      "options": {
+        "pms": "PMS window",
+        "period": "Upcoming period",
+        "contraception_restock": "Contraception pack running low",
+        "missed_dose": "Missed contraception dose",
+        "fertility": "Fertility window"
+      }
+    },
+    "detail_level": {
+      "options": {
+        "general": "General (no specifics)",
+        "detailed": "Detailed"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "cycle_day": {
+        "name": "Cycle day"
+      },
+      "phase": {
+        "name": "Phase",
+        "state": {
+          "menstruation": "Menstruation",
+          "follicular": "Follicular",
+          "ovulation": "Ovulation",
+          "luteal": "Luteal"
+        }
+      },
+      "fertility": {
+        "name": "Fertility",
+        "state": {
+          "fertile": "Fertile",
+          "low": "Low",
+          "safer": "Safer"
+        }
+      },
+      "next_period": {
+        "name": "Next period"
+      }
+    },
+    "binary_sensor": {
+      "period_active": {
+        "name": "Period active"
+      },
+      "pms_active": {
+        "name": "PMS window"
+      }
+    }
+  }
+}

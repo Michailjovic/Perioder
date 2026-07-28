@@ -1,0 +1,140 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Nastavení Perioder",
+        "description": "Založení sledování pro jednu osobu (vlastníka cyklu). Podporovatele (partnera, spolubydlícího, kohokoli) přidáš později v Nastavení > Zařízení a služby > Perioder > Konfigurovat.",
+        "data": {
+          "name": "Jméno (jen pro tvou orientaci)",
+          "cycle_length": "Délka cyklu (dny)",
+          "period_duration": "Délka periody (dny)",
+          "goal": "Cíl",
+          "pms_window_days": "PMS okno (dní před periodou)",
+          "regimen_type": "Typ antikoncepčního balení",
+          "pack_size": "Velikost balení ve dnech (jen u vlastního typu)",
+          "pause_days": "Dny pauzy (jen u vlastního typu)",
+          "reminder_time": "Čas denní připomínky antikoncepce"
+        }
+      }
+    },
+    "error": {
+      "invalid_length": "Délka cyklu musí být delší než délka periody."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "menu_options": {
+          "settings": "Upravit nastavení",
+          "supporters": "Spravovat podporovatele"
+        }
+      },
+      "settings": {
+        "title": "Nastavení Perioder",
+        "data": {
+          "cycle_length": "Délka cyklu (dny)",
+          "period_duration": "Délka periody (dny)",
+          "goal": "Cíl",
+          "pms_window_days": "PMS okno (dní před periodou)",
+          "regimen_type": "Typ antikoncepčního balení",
+          "pack_size": "Velikost balení ve dnech (jen u vlastního typu)",
+          "pause_days": "Dny pauzy (jen u vlastního typu)",
+          "reminder_time": "Čas denní připomínky antikoncepce"
+        }
+      },
+      "supporters": {
+        "title": "Správa podporovatelů",
+        "menu_options": {
+          "add_supporter": "Přidat podporovatele",
+          "remove_supporter": "Odebrat podporovatele",
+          "finish": "Hotovo"
+        }
+      },
+      "add_supporter": {
+        "title": "Přidat podporovatele",
+        "description": "Podporovatel vidí jen kategorie, ke kterým ho přihlásíš, a jen v úrovni detailu, kterou zvolíš.",
+        "data": {
+          "device_id": "Notifikační zařízení",
+          "categories": "Kategorie k odběru",
+          "detail_level": "Úroveň detailu"
+        }
+      },
+      "remove_supporter": {
+        "title": "Odebrat podporovatele",
+        "data": {
+          "supporter_id": "Podporovatel"
+        }
+      }
+    },
+    "error": {
+      "invalid_length": "Délka cyklu musí být delší než délka periody."
+    }
+  },
+  "selector": {
+    "goal": {
+      "options": {
+        "track": "Jen sledování",
+        "avoid": "Vyhýbání se těhotenství",
+        "plan": "Plánování těhotenství"
+      }
+    },
+    "regimen_type": {
+      "options": {
+        "21_7": "21 aktivních dní + 7 pauza",
+        "24_4": "24 aktivních dní + 4 pauza",
+        "continuous": "Kontinuální (bez pauzy)",
+        "custom": "Vlastní"
+      }
+    },
+    "supporter_category": {
+      "options": {
+        "pms": "PMS okno",
+        "period": "Blížící se perioda",
+        "contraception_restock": "Docházející balení antikoncepce",
+        "missed_dose": "Vynechaná dávka antikoncepce",
+        "fertility": "Fertilní okno"
+      }
+    },
+    "detail_level": {
+      "options": {
+        "general": "Obecná (bez detailů)",
+        "detailed": "Detailní"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "cycle_day": {
+        "name": "Den cyklu"
+      },
+      "phase": {
+        "name": "Fáze",
+        "state": {
+          "menstruation": "Menstruace",
+          "follicular": "Folikulární",
+          "ovulation": "Ovulace",
+          "luteal": "Luteální"
+        }
+      },
+      "fertility": {
+        "name": "Plodnost",
+        "state": {
+          "fertile": "Plodné dny",
+          "low": "Nízká plodnost",
+          "safer": "Bezpečnější dny"
+        }
+      },
+      "next_period": {
+        "name": "Další perioda"
+      }
+    },
+    "binary_sensor": {
+      "period_active": {
+        "name": "Perioda probíhá"
+      },
+      "pms_active": {
+        "name": "PMS okno"
+      }
+    }
+  }
+}
