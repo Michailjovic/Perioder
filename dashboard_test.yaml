@@ -1,64 +1,65 @@
-# Perioder v0.1.0 - test dashboard
+# Perioder v0.1.1 - test dashboard (single VIEW, not a whole-dashboard file)
 #
 # Setup:
-#   1. Integration must be named exactly "Test" during setup (Settings >
-#      Devices & Services > Add Integration > Perioder) - every entity ID
-#      below depends on that.
+#   1. Integration must be named exactly "Test" during setup.
 #   2. Settings > Dashboards > Add Dashboard > "New dashboard from scratch"
-#      > open it > pencil icon (Edit Dashboard) > three-dot menu >
-#      "Edit in YAML" > paste this whole file > Save.
+#      (any title) > open it > pencil icon (top right) to enter edit mode
+#      > three-dot menu > "Edit in YAML".
+#   3. That editor is for the CURRENT VIEW only - it starts with something
+#      like `title: Home` / `cards: []`. Delete all of it and paste this
+#      whole file in its place (do NOT wrap it in an extra `views:` key -
+#      that caused the blank-page issue). Save.
 #
-# That's it - no helpers, no scripts. "Zapsat začátek periody" below is a
-# native date entity from the integration itself: click it, pick a date
-# (today, or an earlier one if you're only entering it the next day), done.
-# Same for the PMS dropdown - pick a value, it applies immediately.
+# Even simpler alternative to all of the above: skip this file entirely and
+# use Settings > Devices & Services > Perioder > "test" > "Add to dashboard"
+# (visible at the bottom of the device's Sensors card) - it builds an
+# entities card from every entity on the device automatically, no YAML.
+# This file just gives you nicer cards (glance, gauge) on top of that.
 #
 # If you used a different integration name than "Test", replace "test" in
 # every entity_id below with your own slug (check Developer Tools > States).
 
-title: Perioder (test)
-views:
-  - title: Cyklus
-    path: perioder-test
-    cards:
-      - type: markdown
-        content: >-
-          **Perioder v0.1.0 - test dashboard.** Klikni na "Zapsat začátek
-          periody" a vyber datum - i zpětně, pokud se to dozvíš až druhý
-          den. "PMS přebití" testuje PMS okno bez čekání na skutečné datum.
+title: Cyklus
+path: perioder-test
+cards:
+  - type: markdown
+    content: >-
+      **Perioder v0.1.1 - test dashboard.** Klikni na "Zapsat začátek
+      periody" a vyber datum - i zpětně, pokud se to dozvíš až druhý den.
+      "PMS přebití" testuje PMS okno bez čekání na skutečné datum.
 
-      - type: glance
-        title: Stav cyklu
-        entities:
-          - entity: sensor.test_cycle_day
-            name: Den cyklu
-          - entity: sensor.test_phase
-            name: Fáze
-          - entity: sensor.test_fertility
-            name: Plodnost
-          - entity: sensor.test_next_period
-            name: Další perioda (dny)
-
-      - type: gauge
-        entity: sensor.test_cycle_day
+  - type: glance
+    title: Stav cyklu
+    entities:
+      - entity: sensor.test_cycle_day
         name: Den cyklu
-        min: 1
-        max: 40
-        needle: true
+      - entity: sensor.test_phase
+        name: Fáze
+      - entity: sensor.test_fertility
+        name: Plodnost
+      - entity: sensor.test_next_period
+        name: Další perioda (dny)
 
-      - type: entities
-        title: Ostatní senzory
-        entities:
-          - entity: binary_sensor.test_period_active
-            name: Perioda probíhá
-          - entity: binary_sensor.test_pms_active
-            name: "PMS okno (admin/testing pohled)"
-            secondary_info: last-changed
+  - type: gauge
+    entity: sensor.test_cycle_day
+    name: Den cyklu
+    min: 1
+    max: 40
+    needle: true
 
-      - type: entities
-        title: Ovládání
-        entities:
-          - entity: date.test_last_period_start
-            name: Zapsat začátek periody
-          - entity: select.test_pms_override
-            name: PMS přebití
+  - type: entities
+    title: Ostatní senzory
+    entities:
+      - entity: binary_sensor.test_period_active
+        name: Perioda probíhá
+      - entity: binary_sensor.test_pms_active
+        name: "PMS okno (admin/testing pohled)"
+        secondary_info: last-changed
+
+  - type: entities
+    title: Ovládání
+    entities:
+      - entity: date.test_last_period_start
+        name: Zapsat začátek periody
+      - entity: select.test_pms_override
+        name: PMS přebití

@@ -5,6 +5,32 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.1.2] - 2026-07-29
+
+Bugfix release for `dashboard_test.yaml` - the file didn't render.
+
+### Fixed
+
+- `dashboard_test.yaml` was wrapped in a top-level `title:`/`views:` structure,
+  which is the format for a whole-dashboard raw editor. Home Assistant's
+  per-view "Edit in YAML" editor (the one these setup instructions actually
+  point to) expects a single view's own keys (`title`, `path`, `cards`) at
+  the root instead - pasting the old file left `views:` unrecognized and HA
+  silently defaulted the view to an empty `cards: []`, producing a blank
+  page. The file now matches the per-view editor's expected structure.
+- Documented a simpler zero-YAML alternative in the file's header: Settings
+  > Devices & Services > Perioder > (device) > "Add to dashboard" builds an
+  entities card from every entity on the device automatically. A Perioder
+  entry showing up directly in the generic "Add Card" search dialog would
+  need a custom Lovelace card/strategy (frontend JS) - out of scope until
+  v2.0.0 (see `ANALYZA-A-ROADMAP.md`).
+
+### Notes
+
+- GitHub repository "description" and "topics" (HACS Action's repository
+  check) are GitHub metadata, not files in this repo - set them under the
+  repository's "About" section on GitHub. No code change can fix this.
+
 ## [0.1.1] - 2026-07-29
 
 Bugfix release. v0.1.0 never actually reached a working state - installing it
