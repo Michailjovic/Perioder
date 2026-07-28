@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import slugify
 
 from .const import DOMAIN
 from .storage import PerioderData
@@ -40,7 +41,7 @@ class PmsOverrideSelect(SelectEntity):
         self._entry = entry
         self._data = data
         self._attr_translation_key = "pms_override"
-        self.entity_id = "select.pms_override"
+        self.entity_id = f"select.{slugify(entry.title)}_pms_override"
         self._attr_unique_id = f"{entry.entry_id}_pms_override"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},

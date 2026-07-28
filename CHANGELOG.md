@@ -5,6 +5,36 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.1.5] - 2026-07-29
+
+Bugfix release: v0.1.4 fixed the *object ID* part but dropped the device
+name prefix - entities came back as `binary_sensor.pms_active` instead of
+`binary_sensor.test_pms_active` (confirmed live).
+
+### Fixed
+
+- v0.1.4 pinned `self.entity_id` to a fixed string like
+  `"binary_sensor.pms_active"`, with no reference to the device/entry name.
+  That value becomes `internal_integration_suggested_object_id` and is used
+  *as-is* by the entity registry - unlike the normal `has_entity_name`
+  auto-naming path, it does **not** get the device name prepended. Since
+  every cycle owner is a separate config entry/device, this would also have
+  caused an ID collision the moment a second owner was added (both wanting
+  plain `pms_active`).
+- All 4 platforms now build the entity_id from the device name themselves:
+  `self.entity_id = f"{domain}.{slugify(entry.title)}_{key}"` (e.g. entry
+  titled "Test" -> `binary_sensor.test_pms_active`,
+  `date.test_last_period_start`). This restores the per-owner prefix
+  `dashboard_test.yaml` already expects, and keeps IDs distinct when
+  multiple cycle owners exist.
+- `dashboard_test.yaml` version references updated to v0.1.5.
+
+### Notes
+
+- As with v0.1.4, existing wrongly-named entities from a live instance
+  won't rename themselves - delete and recreate the integration to pick up
+  the corrected IDs.
+
 ## [0.1.4] - 2026-07-29
 
 Bugfix release: v0.1.3 did not actually fix anything. Confirmed live - after

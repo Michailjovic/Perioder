@@ -16,6 +16,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import slugify
 
 from . import cycle_math as cm
 from .const import DOMAIN
@@ -48,7 +49,7 @@ class _PerioderSensorBase(SensorEntity):
         self._entry = entry
         self._data = data
         self._attr_translation_key = key
-        self.entity_id = f"sensor.{key}"
+        self.entity_id = f"sensor.{slugify(entry.title)}_{key}"
         self._attr_unique_id = f"{entry.entry_id}_{key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
