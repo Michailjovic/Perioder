@@ -48,6 +48,7 @@ and the supporter notification engine are intentionally not in yet.
 
 ### Fixed
 
+- Added `custom_components/perioder/brand/icon.png` (and a copy at `brand/icon.png`) so the HACS Action's brand check passes locally instead of requiring the integration to already be listed in home-assistant/brands.
 - `config_flow.py` now targets the current Home Assistant options flow API:
   `OptionsFlowWithReload`, no explicit `self.config_entry = config_entry` in
   `__init__` (that assignment became a hard `AttributeError` - not just a
