@@ -123,7 +123,7 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 
 - `custom_components/perioder/` — vlastní HA integrace, `DOMAIN = "perioder"`. Jeden config entry = jeden vlastník cyklu; instance HA jich může mít libovolný počet bez umělého omezení.
 - Config Flow (vlastník cyklu + základní nastavení) + Options Flow (úprava nastavení + správa podporovatelů a jejich odběrů, N:M vůči ostatním entries).
-- Storage: `hass.helpers.storage.Store`, JSON, sekce `cycle`, `contraception`, `symptoms`, `supporters` (uložené vždy pod konkrétním config entry, tedy pod konkrétním vlastníkem cyklu — nikoli globálně).
+- **Nastavení a podporovatelé žijí v config entry** (`data`/`options`), ne ve Store — spravuje je Config/Options Flow a čte `settings.py`. Runtime `Store` (`hass.helpers.storage.Store`, JSON) drží jen to, co se mění službami mezi úpravami nastavení: `last_period_start`, `pms_override`, `contraception` (aktivní balení, log pilulek), `symptoms`/`symptom_log` — vždy pod konkrétním config entry, tedy pod konkrétním vlastníkem cyklu. Rozdělení zabraňuje rozjetí dvou kopií téže věci (v0.1.0 to původně mělo duplicitně i ve Store, opraveno před prvním pushem).
 - Čistá výpočetní logika oddělená od HA (`cycle_math.py`, `pill_math.py`) — testovatelné bez HA runtime.
 - Distribuce přes HACS (custom repository).
 - Eskalace připomínek přes `timer.*` helpery + reakce na `mobile_app_notification_action`, ne přes opakované automatizace navázané na fixní čas.

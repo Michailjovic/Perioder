@@ -5,6 +5,12 @@ end: read-only cycle sensors, a way to feed in test data
 (`perioder.log_period_start`), and a way to poke the PMS window for testing
 (`perioder.set_pms_override`). Contraception logic, the calendar, symptoms,
 and the supporter notification engine are not in yet - see CHANGELOG.md.
+
+Settings and supporters live in the config entry (data/options) and are
+handled by config_flow.py + settings.py; this module only owns the runtime
+Store (storage.py) for cycle/contraception/symptom state. Because the
+options flow uses `OptionsFlowWithReload`, editing settings or supporters
+reloads the entry automatically - there is no manual update listener here.
 """
 from __future__ import annotations
 
@@ -56,7 +62,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await data.async_load()
     hass.data[DOMAIN][entry.entry_id] = data
 
-    entry.async_on_unload(entry.add_update_listener(async_update_listener))
     entry.async_on_unload(
         async_track_time_interval(hass, lambda now, d=data: d.request_refresh(), REFRESH_INTERVAL)
     )
@@ -79,21 +84,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.services.async_remove(DOMAIN, SERVICE_SET_PMS_OVERRIDE)
 
     return unload_ok
-
-
-async def async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle options update - entry.options is the source of truth after setup."""
-    data: PerioderData = hass.data[DOMAIN][entry.entry_id]
-    await data.async_set_settings(
-        cycle_length=entry.options.get("cycle_length"),
-        period_duration=entry.options.get("period_duration"),
-        goal=entry.options.get("goal"),
-        pms_window_days=entry.options.get("pms_window_days"),
-        regimen_type=entry.options.get("regimen_type"),
-        pack_size=entry.options.get("pack_size"),
-        pause_days=entry.options.get("pause_days"),
-        reminder_time=entry.options.get("reminder_time"),
-    )
 
 
 def _async_register_services(hass: HomeAssistant) -> None:

@@ -13,19 +13,29 @@ Home Assistant custom integration for menstrual cycle and contraception tracking
 3. Install **Perioder** and restart Home Assistant.
 4. Settings > Devices & Services > Add Integration > **Perioder**.
 
-## First use (v0.1.0)
+## First use / testing (v0.1.0)
 
-1. During setup, give it a name (e.g. "Alina") - this becomes the device name and shows up in entity IDs.
-2. Call the `perioder.log_period_start` action (Developer Tools > Actions) for that cycle owner, optionally with a backdated `date:`. Without this, all sensors stay "no data".
-3. Check Settings > Devices & Services > Perioder > (your device) for the created entities, or Developer Tools > States.
-4. Add `lovelace_example.yaml` to a dashboard (adjust entity IDs to match your device's slug) to see cycle day, phase, fertility, and days until the next period update live.
-5. Try `perioder.set_pms_override` (`active` / `inactive` / `auto`) to see the PMS window sensor react without waiting for the real date.
-6. Settings > Devices & Services > Perioder > Configure lets you edit settings and add supporters (notification target, categories, detail level) - only reachable by an HA administrator, by design.
+1. During setup, name it exactly **Test** (this becomes the device name and
+   determines entity IDs - the ready-made dashboard below assumes this name).
+2. Call `perioder.log_period_start` (Developer Tools > Actions, pick the cycle
+   owner from the dropdown), optionally with a backdated `date:`. Without this,
+   all sensors stay "unknown".
+3. Add a full test dashboard in one go: Settings > Dashboards > Add Dashboard >
+   "New dashboard from scratch" > open it > pencil icon (Edit Dashboard) >
+   three-dot menu > "Edit in YAML" > paste the contents of `dashboard_test.yaml`
+   > Save. (`lovelace_example.yaml` is the same cards as a single card, for
+   dropping into a dashboard you already have.)
+4. Try `perioder.set_pms_override` (`active` / `inactive` / `auto`) to see the
+   PMS window sensor react without waiting for the real date.
+5. Settings > Devices & Services > Perioder > Configure lets you edit settings
+   and add supporters (notification target, categories, detail level) - only
+   reachable by an HA administrator, by design.
 
 ## Current scope (v0.1.0)
 
 - Config + options flow (settings, supporter management).
-- Storage for cycle, contraception, symptoms, and supporters.
+- Settings/supporters live in the config entry; runtime state (cycle,
+  contraception, symptoms) lives in a separate per-entry Store.
 - Sensors: cycle day, phase, fertility, next period.
 - Binary sensors: period active, PMS window (with manual override).
 - Services: `log_period_start`, `set_pms_override`.

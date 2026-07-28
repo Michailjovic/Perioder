@@ -6,6 +6,12 @@ notified about what, and in how much detail. Options Flow is only reachable
 by a Home Assistant administrator, which is a deliberate choice here (see
 the project's ANALYZA-A-ROADMAP.md, section 2.5): the admin decides who
 sees what, there is no separate consent step from the cycle owner.
+
+Uses `OptionsFlowWithReload` (current HA API, no self.config_entry
+assignment in __init__ - the base class provides that property once the
+flow is created; see developers.home-assistant.io/docs/core/integration/options_flow).
+Editing settings or supporters reloads the entry, so sensors always read
+fresh values straight from entry.options (see settings.py).
 """
 from __future__ import annotations
 
@@ -16,6 +22,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import OptionsFlowWithReload
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
@@ -111,20 +118,6 @@ def _supporter_schema() -> vol.Schema:
     )
 
 
-def _default_form_values() -> dict[str, Any]:
-    pack_size, pause_days = REGIMEN_PACK_DEFAULTS[DEFAULT_REGIMEN_TYPE]
-    return {
-        CONF_CYCLE_LENGTH: DEFAULT_CYCLE_LENGTH,
-        CONF_PERIOD_DURATION: DEFAULT_PERIOD_DURATION,
-        CONF_GOAL: DEFAULT_GOAL,
-        CONF_PMS_WINDOW_DAYS: DEFAULT_PMS_WINDOW_DAYS,
-        CONF_REGIMEN_TYPE: DEFAULT_REGIMEN_TYPE,
-        CONF_PACK_SIZE: pack_size,
-        CONF_PAUSE_DAYS: pause_days,
-        CONF_REMINDER_TIME: DEFAULT_REMINDER_TIME,
-    }
-
-
 class PerioderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle initial setup - one config entry per cycle owner."""
 
@@ -140,49 +133,59 @@ class PerioderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 name = user_input.pop(CONF_NAME)
                 return self.async_create_entry(title=name, data=user_input)
 
-        schema = vol.Schema({vol.Required(CONF_NAME): str}).extend(
-            _settings_schema(_default_form_values()).schema
-        )
+        # First-time setup has no config entry yet to read defaults from,
+        # so build the defaults dict straight from const.py.
+        pack_size, pause_days = REGIMEN_PACK_DEFAULTS[DEFAULT_REGIMEN_TYPE]
+        defaults = {
+            CONF_CYCLE_LENGTH: DEFAULT_CYCLE_LENGTH,
+            CONF_PERIOD_DURATION: DEFAULT_PERIOD_DURATION,
+            CONF_GOAL: DEFAULT_GOAL,
+            CONF_PMS_WINDOW_DAYS: DEFAULT_PMS_WINDOW_DAYS,
+            CONF_REGIMEN_TYPE: DEFAULT_REGIMEN_TYPE,
+            CONF_PACK_SIZE: pack_size,
+            CONF_PAUSE_DAYS: pause_days,
+            CONF_REMINDER_TIME: DEFAULT_REMINDER_TIME,
+        }
+
+        schema = vol.Schema({vol.Required(CONF_NAME): str}).extend(_settings_schema(defaults).schema)
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
-        return PerioderOptionsFlow(config_entry)
+        return PerioderOptionsFlow()
 
 
-class PerioderOptionsFlow(config_entries.OptionsFlow):
+class PerioderOptionsFlow(OptionsFlowWithReload):
     """Manage settings and supporters for an existing cycle owner.
 
     Only reachable by a Home Assistant administrator (Settings > Devices &
     Services), which is what makes the admin the one who decides supporter
     access - the platform already gates this, we don't add anything extra.
+
+    `self.config_entry` is provided automatically by the base class once
+    the flow is instantiated - it must not be set explicitly here (doing so
+    is a hard error on current Home Assistant versions).
     """
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
-        self._options: dict[str, Any] = dict(config_entry.options) or dict(config_entry.data)
-        self._options.setdefault("supporters", [])
+    def _ensure_working_copy(self) -> None:
+        if not hasattr(self, "_options"):
+            self._options: dict[str, Any] = dict(self.config_entry.options) or dict(
+                self.config_entry.data
+            )
+            self._options.setdefault("supporters", [])
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        self._ensure_working_copy()
         return self.async_show_menu(step_id="init", menu_options=["settings", "supporters"])
 
     async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        self._ensure_working_copy()
         errors: dict[str, str] = {}
-        defaults = {
-            CONF_CYCLE_LENGTH: self._options.get(CONF_CYCLE_LENGTH, DEFAULT_CYCLE_LENGTH),
-            CONF_PERIOD_DURATION: self._options.get(CONF_PERIOD_DURATION, DEFAULT_PERIOD_DURATION),
-            CONF_GOAL: self._options.get(CONF_GOAL, DEFAULT_GOAL),
-            CONF_PMS_WINDOW_DAYS: self._options.get(CONF_PMS_WINDOW_DAYS, DEFAULT_PMS_WINDOW_DAYS),
-            CONF_REGIMEN_TYPE: self._options.get(CONF_REGIMEN_TYPE, DEFAULT_REGIMEN_TYPE),
-            CONF_PACK_SIZE: self._options.get(
-                CONF_PACK_SIZE, REGIMEN_PACK_DEFAULTS[DEFAULT_REGIMEN_TYPE][0]
-            ),
-            CONF_PAUSE_DAYS: self._options.get(
-                CONF_PAUSE_DAYS, REGIMEN_PACK_DEFAULTS[DEFAULT_REGIMEN_TYPE][1]
-            ),
-            CONF_REMINDER_TIME: self._options.get(CONF_REMINDER_TIME, DEFAULT_REMINDER_TIME),
-        }
+        # self._options already has every settings key, seeded from
+        # entry.options/entry.data in _ensure_working_copy(), plus any
+        # edits made earlier in this same flow.
+        defaults = self._options
 
         if user_input is not None:
             if user_input[CONF_CYCLE_LENGTH] <= user_input[CONF_PERIOD_DURATION]:
@@ -194,6 +197,7 @@ class PerioderOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(step_id="settings", data_schema=_settings_schema(defaults), errors=errors)
 
     async def async_step_supporters(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        self._ensure_working_copy()
         supporters = self._options.get("supporters", [])
         menu_options = ["add_supporter"]
         if supporters:
@@ -202,6 +206,7 @@ class PerioderOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_menu(step_id="supporters", menu_options=menu_options)
 
     async def async_step_add_supporter(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        self._ensure_working_copy()
         if user_input is not None:
             supporter = {
                 "id": uuid.uuid4().hex,
@@ -215,6 +220,7 @@ class PerioderOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(step_id="add_supporter", data_schema=_supporter_schema())
 
     async def async_step_remove_supporter(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        self._ensure_working_copy()
         supporters = self._options.get("supporters", [])
 
         if user_input is not None:
@@ -238,4 +244,5 @@ class PerioderOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(step_id="remove_supporter", data_schema=schema)
 
     async def async_step_finish(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        return self.async_create_entry(title="", data=self._options)
+        self._ensure_working_copy()
+        return self.async_create_entry(data=self._options)

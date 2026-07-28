@@ -19,6 +19,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import cycle_math as cm
 from .const import DOMAIN
+from .settings import get_settings
 from .storage import PerioderData
 
 
@@ -72,7 +73,7 @@ class PeriodActiveBinarySensor(_PerioderBinarySensorBase):
         last_start = self._last_start
         if last_start is None:
             return None
-        settings = self._data.settings
+        settings = get_settings(self._entry)
         day = cm.cycle_day(last_start, date.today())
         return cm.is_period_active(day, settings["period_duration"])
 
@@ -88,7 +89,7 @@ class PmsActiveBinarySensor(_PerioderBinarySensorBase):
         last_start = self._last_start
         if last_start is None:
             return None
-        settings = self._data.settings
+        settings = get_settings(self._entry)
         today = date.today()
         next_start = cm.next_period_date(last_start, settings["cycle_length"], today)
         return cm.is_pms_active(

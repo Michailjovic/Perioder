@@ -1,45 +1,27 @@
-"""Storage layer for Perioder.
+"""Storage layer for Perioder - runtime state only.
 
-Each config entry (one cycle owner) gets its own persisted JSON blob via
-Home Assistant's Store helper, isolated by entry_id - so a single HA
-instance can track any number of independent cycle owners side by side.
+Deliberately does NOT hold settings or supporters: those are "declarative
+config" the admin sets via Config/Options Flow and belong in the config
+entry's data/options (see settings.py), which Home Assistant already
+persists and which OptionsFlowWithReload keeps in sync automatically.
+
+This Store instead holds things that change through services/automations
+between config changes: the last period start date, a manual PMS override,
+contraception pack state, and symptom history. One Store per config entry
+(one cycle owner), isolated by entry_id.
 """
 from __future__ import annotations
 
 import logging
-import uuid
 from datetime import date, datetime
 from typing import Any, TypedDict, cast
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import (
-    DEFAULT_CYCLE_LENGTH,
-    DEFAULT_GOAL,
-    DEFAULT_PERIOD_DURATION,
-    DEFAULT_PMS_WINDOW_DAYS,
-    DEFAULT_REGIMEN_TYPE,
-    DEFAULT_REMINDER_TIME,
-    REGIMEN_PACK_DEFAULTS,
-    STORAGE_KEY_PREFIX,
-    STORAGE_VERSION,
-)
+from .const import STORAGE_KEY_PREFIX, STORAGE_VERSION
 
 _LOGGER = logging.getLogger(__name__)
-
-
-class PerioderSettings(TypedDict):
-    """Settings that apply to a single cycle owner."""
-
-    cycle_length: int
-    period_duration: int
-    goal: str
-    pms_window_days: int
-    regimen_type: str
-    pack_size: int
-    pause_days: int
-    reminder_time: str
 
 
 class ContraceptionState(TypedDict):
@@ -50,38 +32,13 @@ class ContraceptionState(TypedDict):
     pill_log: dict[str, str]  # date_str -> "taken" | "missed"
 
 
-class Supporter(TypedDict):
-    """A person subscribed to some subset of a cycle owner's notifications."""
-
-    id: str
-    device_id: str
-    categories: list[str]
-    detail_level: str
-
-
 class PerioderStorageData(TypedDict):
     version: int
     last_period_start: str | None
     pms_override: bool | None
-    settings: PerioderSettings
     contraception: ContraceptionState
     symptoms: dict[str, str]  # symptom -> iso timestamp of the most recent log
     symptom_log: list[dict[str, str]]  # full history: [{"symptom", "logged_at"}]
-    supporters: list[Supporter]
-
-
-def _default_settings() -> PerioderSettings:
-    pack_size, pause_days = REGIMEN_PACK_DEFAULTS[DEFAULT_REGIMEN_TYPE]
-    return {
-        "cycle_length": DEFAULT_CYCLE_LENGTH,
-        "period_duration": DEFAULT_PERIOD_DURATION,
-        "goal": DEFAULT_GOAL,
-        "pms_window_days": DEFAULT_PMS_WINDOW_DAYS,
-        "regimen_type": DEFAULT_REGIMEN_TYPE,
-        "pack_size": pack_size,
-        "pause_days": pause_days,
-        "reminder_time": DEFAULT_REMINDER_TIME,
-    }
 
 
 def _default_contraception() -> ContraceptionState:
@@ -93,16 +50,14 @@ def _default_data() -> PerioderStorageData:
         "version": STORAGE_VERSION,
         "last_period_start": None,
         "pms_override": None,
-        "settings": _default_settings(),
         "contraception": _default_contraception(),
         "symptoms": {},
         "symptom_log": [],
-        "supporters": [],
     }
 
 
 class PerioderData:
-    """Manages persisted data for a single Perioder config entry."""
+    """Manages persisted runtime data for a single Perioder config entry."""
 
     def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
         self.hass = hass
@@ -122,8 +77,6 @@ class PerioderData:
         defaults = _default_data()
         for key, value in defaults.items():
             data.setdefault(key, value)
-        for key, value in defaults["settings"].items():
-            data["settings"].setdefault(key, value)
         for key, value in defaults["contraception"].items():
             data["contraception"].setdefault(key, value)
         self.data = data
@@ -178,19 +131,6 @@ class PerioderData:
             self.data["pms_override"] = value
             await self.async_save()
 
-    # -- settings ---------------------------------------------------------
-
-    @property
-    def settings(self) -> PerioderSettings:
-        return self.data["settings"] if self.data else _default_settings()
-
-    async def async_set_settings(self, **kwargs: Any) -> None:
-        """Update one or more settings fields at once. Unset/None values are ignored."""
-        if not self.data:
-            return
-        self.data["settings"].update({k: v for k, v in kwargs.items() if v is not None})
-        await self.async_save()
-
     # -- contraception ------------------------------------------------------
 
     @property
@@ -202,19 +142,11 @@ class PerioderData:
             self.data["contraception"]["active"] = active
             await self.async_save()
 
-    async def async_start_new_pack(self, start_date: date, regimen_type: str | None = None) -> None:
+    async def async_start_new_pack(self, start_date: date) -> None:
         if not self.data:
             return
         self.data["contraception"]["pack_start_date"] = start_date.isoformat()
         self.data["contraception"]["active"] = True
-        if regimen_type:
-            pack_size, pause_days = REGIMEN_PACK_DEFAULTS.get(
-                regimen_type,
-                (self.data["settings"]["pack_size"], self.data["settings"]["pause_days"]),
-            )
-            self.data["settings"]["regimen_type"] = regimen_type
-            self.data["settings"]["pack_size"] = pack_size
-            self.data["settings"]["pause_days"] = pause_days
         await self.async_save()
 
     async def async_log_pill_taken(self, log_date: date) -> None:
@@ -239,39 +171,3 @@ class PerioderData:
             self.data["symptoms"][symptom] = now
             self.data.setdefault("symptom_log", []).append({"symptom": symptom, "logged_at": now})
             await self.async_save()
-
-    # -- supporters -----------------------------------------------------------
-
-    @property
-    def supporters(self) -> list[Supporter]:
-        return self.data.get("supporters", []) if self.data else []
-
-    async def async_add_supporter(self, device_id: str, categories: list[str], detail_level: str) -> str:
-        if not self.data:
-            return ""
-        supporter_id = uuid.uuid4().hex
-        self.data.setdefault("supporters", []).append(
-            {
-                "id": supporter_id,
-                "device_id": device_id,
-                "categories": categories,
-                "detail_level": detail_level,
-            }
-        )
-        await self.async_save()
-        return supporter_id
-
-    async def async_update_supporter(self, supporter_id: str, **kwargs: Any) -> None:
-        if not self.data:
-            return
-        for supporter in self.data.get("supporters", []):
-            if supporter["id"] == supporter_id:
-                supporter.update({k: v for k, v in kwargs.items() if v is not None})
-                break
-        await self.async_save()
-
-    async def async_remove_supporter(self, supporter_id: str) -> None:
-        if not self.data:
-            return
-        self.data["supporters"] = [s for s in self.data.get("supporters", []) if s["id"] != supporter_id]
-        await self.async_save()

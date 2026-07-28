@@ -4,6 +4,8 @@ Read-only, computed on demand from stored data + today's date - nothing is
 polled. Entities refresh when storage changes (a service call) and on a
 periodic tick registered in __init__.py, to catch the plain passage of time
 (e.g. midnight rolling the cycle day over) without any user action.
+Settings (cycle_length, period_duration, ...) come from the config entry
+via settings.get_settings(), not from the runtime Store - see storage.py.
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import cycle_math as cm
 from .const import DOMAIN
+from .settings import get_settings
 from .storage import PerioderData
 
 
@@ -99,7 +102,7 @@ class PhaseSensor(_PerioderSensorBase):
         last_start = self._last_start
         if last_start is None:
             return None
-        settings = self._data.settings
+        settings = get_settings(self._entry)
         day = cm.cycle_day(last_start, date.today())
         return cm.phase(day, settings["cycle_length"], settings["period_duration"])
 
@@ -118,7 +121,7 @@ class FertilitySensor(_PerioderSensorBase):
         last_start = self._last_start
         if last_start is None:
             return None
-        settings = self._data.settings
+        settings = get_settings(self._entry)
         day = cm.cycle_day(last_start, date.today())
         return cm.fertility(day, settings["cycle_length"])
 
@@ -136,5 +139,5 @@ class NextPeriodSensor(_PerioderSensorBase):
         last_start = self._last_start
         if last_start is None:
             return None
-        settings = self._data.settings
+        settings = get_settings(self._entry)
         return cm.days_until_next_period(last_start, settings["cycle_length"], date.today())
