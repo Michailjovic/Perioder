@@ -5,6 +5,46 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.1.4] - 2026-07-29
+
+Bugfix release: v0.1.3 did not actually fix anything. Confirmed live - after
+upgrading to v0.1.3, restarting HA, and deleting/recreating the integration,
+Developer Tools > States still showed `binary_sensor.test_pms_window`
+instead of `binary_sensor.test_pms_active` (and the date entity was still
+wrong too).
+
+### Fixed
+
+- v0.1.3's fix (`self._attr_suggested_object_id = key`) set an attribute
+  that doesn't exist on Home Assistant's `Entity` class - `suggested_object_id`
+  is a **read-only property**, not a settable `_attr_*` field. HA silently
+  ignored it; nothing changed. Verified directly against Home Assistant core
+  source (`homeassistant/helpers/entity.py`,
+  `homeassistant/helpers/entity_platform.py`, `dev` branch).
+- Real mechanism, now confirmed by tracing `entity_platform.py`'s
+  registration code (`_async_derive_object_ids`, lines ~1273-1306): an
+  entity can pin its object ID by setting `self.entity_id` directly to a
+  full `"<domain>.<object_id>"` string *before* it's added. The platform
+  parses it with `split_entity_id()` into
+  `internal_integration_suggested_object_id`, which takes priority over the
+  (display-name-derived) `suggested_object_id` property when the entity
+  registry picks the final ID. All 4 platforms now do this:
+  `sensor.py`/`binary_sensor.py` set `self.entity_id = f"{domain}.{key}"` in
+  the shared base class `__init__`; `date.py` and `select.py` set it
+  directly (`"date.last_period_start"`, `"select.pms_override"`). The
+  fabricated `_attr_suggested_object_id` lines are removed everywhere.
+- `dashboard_test.yaml` version references updated to v0.1.4.
+
+### Notes
+
+- This is now verified against actual HA core source, not inferred from
+  behavior - the fix should hold going forward without another round of
+  guessing.
+- Existing wrongly-named entities in a live instance (e.g.
+  `binary_sensor.test_pms_window`) won't rename themselves - delete and
+  recreate the integration (or manually rename the entity ID in its entity
+  settings) to get the corrected IDs.
+
 ## [0.1.3] - 2026-07-29
 
 Bugfix release: two entities got the wrong `entity_id`.

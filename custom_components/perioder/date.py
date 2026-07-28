@@ -39,7 +39,7 @@ class LastPeriodStartDate(DateEntity):
         self._entry = entry
         self._data = data
         self._attr_translation_key = "last_period_start"
-        self._attr_suggested_object_id = "last_period_start"
+        self.entity_id = "date.last_period_start"
         self._attr_unique_id = f"{entry.entry_id}_last_period_start"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},

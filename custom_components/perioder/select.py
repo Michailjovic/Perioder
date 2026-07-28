@@ -40,7 +40,7 @@ class PmsOverrideSelect(SelectEntity):
         self._entry = entry
         self._data = data
         self._attr_translation_key = "pms_override"
-        self._attr_suggested_object_id = "pms_override"
+        self.entity_id = "select.pms_override"
         self._attr_unique_id = f"{entry.entry_id}_pms_override"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
