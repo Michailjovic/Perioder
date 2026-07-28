@@ -1,4 +1,4 @@
-# Perioder v0.1.1 - test dashboard (single VIEW, not a whole-dashboard file)
+# Perioder v0.1.3 - test dashboard (single VIEW, not a whole-dashboard file)
 #
 # Setup:
 #   1. Integration must be named exactly "Test" during setup.
@@ -24,7 +24,7 @@ path: perioder-test
 cards:
   - type: markdown
     content: >-
-      **Perioder v0.1.1 - test dashboard.** Klikni na "Zapsat začátek
+      **Perioder v0.1.3 - test dashboard.** Klikni na "Zapsat začátek
       periody" a vyber datum - i zpětně, pokud se to dozvíš až druhý den.
       "PMS přebití" testuje PMS okno bez čekání na skutečné datum.
 

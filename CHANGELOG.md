@@ -5,6 +5,30 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.1.3] - 2026-07-29
+
+Bugfix release: two entities got the wrong `entity_id`.
+
+### Fixed
+
+- `binary_sensor.<name>_pms_active` and `date.<name>_last_period_start`
+  didn't exist under the IDs `dashboard_test.yaml` expected - confirmed live
+  ("Entity not found") after the v0.1.2 dashboard fix started actually
+  rendering. Root cause: with `has_entity_name = True` and no explicit
+  object ID, Home Assistant derives `entity_id` from the entity's
+  *translated display name*, not from its internal key/translation_key. Two
+  entities had a display name that didn't slug-match their key (`pms_active`
+  displayed as "PMS window" -> `..._pms_window`; `last_period_start`
+  displayed as "Log period start" -> `..._log_period_start`); the other four
+  happened to match by coincidence.
+- Every entity in `sensor.py`, `binary_sensor.py`, `date.py`, and `select.py`
+  now sets `_attr_suggested_object_id` explicitly to its internal key, so
+  `entity_id` is pinned regardless of display name or future translation
+  changes - not just a fix for these two, but a fix for this whole class of
+  bug going forward.
+- `dashboard_test.yaml`'s markdown card text updated to reference this
+  version.
+
 ## [0.1.2] - 2026-07-29
 
 Bugfix release for `dashboard_test.yaml` - the file didn't render.
