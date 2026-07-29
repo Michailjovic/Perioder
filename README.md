@@ -101,12 +101,20 @@ transition-triggered supporter notifications (e.g. "PMS window just
 started"), actionable notification buttons (confirming from the push
 notification itself, not just the dashboard), history/trend graph cards
 (the sensors have the needed data, no graph card is wired into
-`dashboard_test.yaml` yet), blueprints, and tests. The notification
-dispatch code also hasn't been exercised against a live Home Assistant
-instance yet - only its decision logic has been verified standalone;
-please report if a notification doesn't actually arrive. See
-`CHANGELOG.md` and `ANALYZA-A-ROADMAP.md`.
+`dashboard_test.yaml` yet), and tests. The notification dispatch code
+also hasn't been exercised against a live Home Assistant instance yet -
+only its decision logic has been verified standalone; please report if a
+notification doesn't actually arrive. See `CHANGELOG.md` and
+`ANALYZA-A-ROADMAP.md`.
+
+## Optional automation blueprints (v0.6.0)
+
+Lighting scene during period/PMS, adding to a shopping list when the
+contraception pack runs low or a period is coming up, and a heating pad
+reminder - none of these are part of the integration itself, so nothing
+installs automatically. See `BLUEPRINTS.md` for import links and details.
 
 ## Project docs
 
 Full analysis, control model, and roadmap: `ANALYZA-A-ROADMAP.md`.
+Optional automation blueprints: `BLUEPRINTS.md`.

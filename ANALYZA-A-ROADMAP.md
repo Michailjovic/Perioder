@@ -184,10 +184,11 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - [ ] Grafy historie/trendů (history/statistics graph card) — `sensor.last_symptom` a `sensor.contraception_status` už mají potřebná data, ale žádná konkrétní graf-karta zatím není součástí `dashboard_test.yaml`
 - [ ] Učení PMS okna ze symptomové historie (zmíněno jako budoucí možnost v 2.4, ne součást M5)
 
-### M6 — Blueprinty a komfortní automatizace
-- [ ] Blueprint: osvětlení/nerušit scéna v periodě/PMS okně
-- [ ] Blueprint: nákupní seznam při docházející antikoncepci/periodě
-- [ ] Blueprint: připomínka ohřívacího polštářku
+### M6 — Blueprinty a komfortní automatizace ✅ (v0.6.0)
+- [x] Blueprint: osvětlení/scéna v periodě/PMS okně (`period_pms_lighting_scene.yaml`)
+- [x] Blueprint: nákupní seznam při docházející antikoncepci/periodě (`contraception_period_shopping_list.yaml`)
+- [x] Blueprint: připomínka ohřívacího polštářku (`heating_pad_reminder.yaml`)
+- Viz `BLUEPRINTS.md` pro import a popis; ověřeno jen staticky (konzistence `!input` vs deklarované vstupy), ne živým importem do běžící instance
 
 ### M7 — Polish, testy a GitHub dokumentace (uzavírá v1.0.0)
 - [ ] `tests/test_pill_math.py`, `tests/test_cycle_math.py`

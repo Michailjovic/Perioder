@@ -1,0 +1,54 @@
+blueprint:
+  name: "Perioder: Heating pad reminder"
+  description: >-
+    Sends a notification suggesting the heating pad as soon as the period
+    starts, and optionally turns on a heating pad switch/plug directly.
+    Leave "Heating pad switch" empty to only get the notification.
+  domain: automation
+  input:
+    period_active_entity:
+      name: Period active
+      description: Perioder's binary_sensor.*_period_active for this cycle owner.
+      selector:
+        entity:
+          domain: binary_sensor
+    notify_entity:
+      name: Notify target
+      description: >-
+        The notify.* entity to send the reminder to - search "notify" in
+        Developer Tools > States to find your phone's.
+      selector:
+        entity:
+          domain: notify
+    message:
+      name: Message
+      default: "Nezapomeň na ohřívací polštářek."
+      selector:
+        text:
+    heating_pad_switch:
+      name: Heating pad switch (optional)
+      description: If set, also turns this switch on directly - leave empty to only notify.
+      default: []
+      selector:
+        entity:
+          domain: switch
+          multiple: true
+
+trigger:
+  - trigger: state
+    entity_id: !input period_active_entity
+    to: "on"
+
+condition: []
+
+action:
+  - action: notify.send_message
+    target:
+      entity_id: !input notify_entity
+    data:
+      message: !input message
+  - action: switch.turn_on
+    target:
+      entity_id: !input heating_pad_switch
+
+mode: single

@@ -1,0 +1,88 @@
+blueprint:
+  name: "Perioder: Add to shopping list when running low"
+  description: >-
+    Adds an item to a chosen to-do/shopping list when the contraception
+    pack is running low, and/or when the next period is coming up soon -
+    so it never surprises you at the pharmacy. Each half fires once per
+    crossing (a numeric_state trigger only fires when the value drops
+    below the threshold, not on every tick), not repeatedly.
+  domain: automation
+  input:
+    pack_days_remaining_entity:
+      name: Pack days remaining
+      description: Perioder's sensor.*_pack_days_remaining.
+      selector:
+        entity:
+          domain: sensor
+    pack_threshold_days:
+      name: Pack restock threshold (days)
+      default: 3
+      selector:
+        number:
+          min: 0
+          max: 14
+          unit_of_measurement: d
+    contraception_item_name:
+      name: Contraception shopping item text
+      default: "Antikoncepce"
+      selector:
+        text:
+    next_period_entity:
+      name: Next period (days)
+      description: Perioder's sensor.*_next_period.
+      selector:
+        entity:
+          domain: sensor
+    period_threshold_days:
+      name: Period heads-up threshold (days)
+      default: 2
+      selector:
+        number:
+          min: 0
+          max: 14
+          unit_of_measurement: d
+    period_item_name:
+      name: Period shopping item text
+      default: "Hygienické potřeby"
+      selector:
+        text:
+    todo_list_entity:
+      name: Shopping/to-do list
+      selector:
+        entity:
+          domain: todo
+
+trigger:
+  - trigger: numeric_state
+    entity_id: !input pack_days_remaining_entity
+    below: !input pack_threshold_days
+    id: restock
+  - trigger: numeric_state
+    entity_id: !input next_period_entity
+    below: !input period_threshold_days
+    id: period
+
+condition: []
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: restock
+        sequence:
+          - action: todo.add_item
+            target:
+              entity_id: !input todo_list_entity
+            data:
+              item: !input contraception_item_name
+      - conditions:
+          - condition: trigger
+            id: period
+        sequence:
+          - action: todo.add_item
+            target:
+              entity_id: !input todo_list_entity
+            data:
+              item: !input period_item_name
+
+mode: queued

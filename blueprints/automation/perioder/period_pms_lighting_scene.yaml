@@ -1,0 +1,78 @@
+blueprint:
+  name: "Perioder: Lighting scene during period/PMS"
+  description: >-
+    Activates a chosen scene as soon as a Perioder period or PMS window
+    starts, and restores a normal scene once both have ended again. Point
+    both inputs at the two binary_sensor entities Perioder already
+    provides for one cycle owner - no extra helpers needed.
+
+    Note: the PMS sensor is meant for supporters, not the cycle owner's own
+    dashboard (see ANALYZA-A-ROADMAP.md section 2.2) - that's a dashboard
+    convention, not an entity restriction, so using it here is fine.
+  domain: automation
+  input:
+    period_active_entity:
+      name: Period active
+      description: Perioder's binary_sensor.*_period_active for this cycle owner.
+      selector:
+        entity:
+          domain: binary_sensor
+    pms_active_entity:
+      name: PMS window active
+      description: Perioder's binary_sensor.*_pms_active for the same cycle owner.
+      selector:
+        entity:
+          domain: binary_sensor
+    active_scene:
+      name: Scene to activate
+      description: Activated as soon as either sensor turns on.
+      selector:
+        entity:
+          domain: scene
+    restore_scene:
+      name: Scene to restore
+      description: Activated once both sensors are off again - point this at your normal/default scene.
+      selector:
+        entity:
+          domain: scene
+
+trigger:
+  - trigger: state
+    entity_id:
+      - !input period_active_entity
+      - !input pms_active_entity
+    to: "on"
+    id: active
+  - trigger: state
+    entity_id:
+      - !input period_active_entity
+      - !input pms_active_entity
+    to: "off"
+    id: maybe_restore
+
+condition: []
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: active
+        sequence:
+          - action: scene.turn_on
+            target:
+              entity_id: !input active_scene
+      - conditions:
+          - condition: trigger
+            id: maybe_restore
+          - condition: state
+            entity_id: !input period_active_entity
+            state: "off"
+          - condition: state
+            entity_id: !input pms_active_entity
+            state: "off"
+        sequence:
+          - action: scene.turn_on
+            target:
+              entity_id: !input restore_scene
+
+mode: single

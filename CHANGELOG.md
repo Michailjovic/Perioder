@@ -5,6 +5,37 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.6.0] - 2026-07-29
+
+M6 - blueprints. These are optional automation blueprints on top of the
+integration, not code inside `custom_components/perioder/` - nothing in the
+integration itself changed in this release.
+
+### Added
+
+- `blueprints/automation/perioder/period_pms_lighting_scene.yaml`:
+  activates a chosen scene while a period or PMS window is active, restores
+  a normal scene once both end.
+- `blueprints/automation/perioder/contraception_period_shopping_list.yaml`:
+  adds an item to a to-do list when the contraception pack is running low
+  and/or the next period is coming up soon.
+- `blueprints/automation/perioder/heating_pad_reminder.yaml`: notifies (and
+  optionally switches on a heating pad) when a period starts.
+- `BLUEPRINTS.md`: import instructions (Settings > Automations & Scenes >
+  Blueprints > Import Blueprint with each file's GitHub URL) and what each
+  one does - same mechanism as `BLUEPRINTS.md` in the
+  [cyclist](https://github.com/ringleader/cyclist) integration this
+  project took inspiration from.
+
+### Notes
+
+- All three blueprints were checked for internal consistency (every
+  `!input` reference in the automation body matches a declared blueprint
+  input, and vice versa) via a small script parsing the YAML with a stub
+  `!input` tag handler - not by importing them into a running Home
+  Assistant instance. Please report back after testing tonight if an
+  import or an automation built from one doesn't behave as described.
+
 ## [0.5.0] - 2026-07-29
 
 M5 - symptoms, shared calendar, dashboard. Closes out every M1-M5 milestone
