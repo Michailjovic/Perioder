@@ -57,6 +57,7 @@ class NotificationState(TypedDict):
 class PerioderStorageData(TypedDict):
     version: int
     last_period_start: str | None
+    last_period_end: str | None  # real, logged end of the current/most recent period (v0.9.0)
     pms_override: bool | None
     contraception: ContraceptionState
     symptoms: dict[str, str]  # symptom -> iso timestamp of the most recent log
@@ -85,6 +86,7 @@ def _default_data() -> PerioderStorageData:
     return {
         "version": STORAGE_VERSION,
         "last_period_start": None,
+        "last_period_end": None,
         "pms_override": None,
         "contraception": _default_contraception(),
         "symptoms": {},
@@ -175,10 +177,32 @@ class PerioderData:
         cycle's manual on/off across into a brand new one would silently
         contradict that. Found while reviewing PMS-override-across-cycles
         as an M7 edge case - this was a real gap, not a hypothetical one.
+
+        Also resets `last_period_end` (v0.9.0) - the confirmed end date is
+        just as much a per-cycle fact as the override, so a new period
+        starting means last cycle's confirmed end no longer applies to
+        anything going forward.
         """
         if self.data:
             self.data["last_period_start"] = value.isoformat()
+            self.data["last_period_end"] = None
             self.data["pms_override"] = None
+            await self.async_save()
+
+    @property
+    def last_period_end(self) -> date | None:
+        if self.data and self.data.get("last_period_end"):
+            return date.fromisoformat(self.data["last_period_end"])
+        return None
+
+    async def async_set_last_period_end(self, value: date) -> None:
+        """Log the real (confirmed) end date of the current/most recent
+        period - the last day bleeding was actually present, inclusive.
+        Lets the calendar show the real span instead of just the
+        `period_duration` estimate for that one cycle (v0.9.0).
+        """
+        if self.data:
+            self.data["last_period_end"] = value.isoformat()
             await self.async_save()
 
     @property

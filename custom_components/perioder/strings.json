@@ -191,6 +191,9 @@
     "date": {
       "last_period_start": {
         "name": "Log period start"
+      },
+      "last_period_end": {
+        "name": "Log period end"
       }
     },
     "select": {

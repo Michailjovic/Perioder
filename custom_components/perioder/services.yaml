@@ -19,6 +19,30 @@ log_period_start:
       selector:
         date:
 
+log_period_end:
+  name: Log period end
+  description: >-
+    Confirm the real (logged) last day of the current period, inclusive.
+    Optional - if never called, the calendar keeps using the
+    period_duration estimate for this cycle's block. Reset back to unset
+    automatically the next time log_period_start is called (it's a
+    per-cycle fact).
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    date:
+      name: Date
+      description: Last day of bleeding, inclusive. Cannot be before the logged start or in the future.
+      required: true
+      example: "2026-07-26"
+      selector:
+        date:
+
 set_pms_override:
   name: Set PMS window override
   description: >-

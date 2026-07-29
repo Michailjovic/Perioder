@@ -54,11 +54,19 @@ def _period_and_fertile_blocks(
     period_duration: int,
     start_date: date,
     end_date: date,
+    *,
+    real_period_end: date | None = None,
 ) -> list[tuple[str, CalendarEvent]]:
     """Predicted period + fertile-window blocks covering [start_date, end_date].
 
     Returns (kind, event) pairs, kind in {"period", "fertile"}, so callers can
     filter and/or relabel per calendar (detailed vs. shared).
+
+    `real_period_end` (v0.9.0) is the confirmed, logged last day of bleeding
+    for the *current* period (the one starting exactly at `last_start`) -
+    when set, that one block uses the real start-to-end span instead of the
+    `period_duration` estimate; every other (past/future, still-predicted)
+    period block is unaffected.
     """
     blocks: list[tuple[str, CalendarEvent]] = []
     fertile_start_day, fertile_end_day = cm.fertile_window(cycle_length)
@@ -70,9 +78,14 @@ def _period_and_fertile_blocks(
 
     cycle_start = first_cycle_start
     while cycle_start <= end_date:
-        period_end = cycle_start + timedelta(days=period_duration)
+        if cycle_start == last_start and real_period_end is not None and real_period_end >= cycle_start:
+            period_end = real_period_end + timedelta(days=1)
+            period_summary = "Perioda (potvrzený konec)"
+        else:
+            period_end = cycle_start + timedelta(days=period_duration)
+            period_summary = "Perioda"
         if period_end > start_date and cycle_start < end_date:
-            blocks.append(("period", CalendarEvent(start=cycle_start, end=period_end, summary="Perioda")))
+            blocks.append(("period", CalendarEvent(start=cycle_start, end=period_end, summary=period_summary)))
 
         fertile_start = cycle_start + timedelta(days=fertile_start_day - 1)
         fertile_end = cycle_start + timedelta(days=fertile_end_day)
@@ -215,7 +228,12 @@ class PerioderCalendar(CalendarEntity):
             events.extend(
                 event
                 for _kind, event in _period_and_fertile_blocks(
-                    last_start, settings["cycle_length"], settings["period_duration"], start_date, end_date
+                    last_start,
+                    settings["cycle_length"],
+                    settings["period_duration"],
+                    start_date,
+                    end_date,
+                    real_period_end=self._data.last_period_end,
                 )
             )
 
@@ -284,7 +302,12 @@ class PerioderSharedCalendar(CalendarEntity):
         if last_start is not None and (SHARED_CALENDAR_PERIOD in enabled or SHARED_CALENDAR_FERTILE in enabled):
             blocks.extend(
                 _period_and_fertile_blocks(
-                    last_start, settings["cycle_length"], settings["period_duration"], start_date, end_date
+                    last_start,
+                    settings["cycle_length"],
+                    settings["period_duration"],
+                    start_date,
+                    end_date,
+                    real_period_end=self._data.last_period_end,
                 )
             )
 

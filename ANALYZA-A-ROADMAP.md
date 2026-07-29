@@ -26,6 +26,7 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - Volitelně navíc BBT/CM/LH pro symptothermální zpřesnění (pozdější fáze, není nutné pro MVP).
 - Kalendář (`calendar.perioder`) s výhledem 3 měsíce dopředu — perioda + fertilní okno.
 - ✅ **(nápad z 2026-07-29, implementováno v0.3.0)** Kalendář zobrazuje historii antikoncepce po dnech — kdy byl prášek potvrzeně vzatý/vynechaný (`pill_log`), a v popisu události i míru zpoždění oproti `reminder_time` (v minutách). Nezobrazují se odhady za budoucí/nezalogované dny, jen skutečně zalogované záznamy.
+- ✅ **(vyžádáno živě 2026-07-29, implementováno v0.9.0)** Volitelné `date.*_last_period_end` — reálný, potvrzený poslední den menstruace (včetně). Pokud je zalogovaný, blok "Perioda" v kalendáři pro aktuální cyklus ukazuje skutečný rozsah místo odhadu z `period_duration`; resetuje se automaticky při dalším zapsání začátku periody (per-cyklus fakt, stejně jako `pms_override`).
 - Cíl (`goal`) ovlivňuje tón a typ notifikací.
 
 ### 2.2 PMS / emoční okno
@@ -207,6 +208,15 @@ Vyžádáno živě po prvním reálném testování v HA (2026-07-29) — nebylo
 - [x] Samostatná notifikace "dochází zásoba" podle `low_stock_threshold` (výchozí 5 tablet) — nezávislá na stávající "končí balení" notifikaci z M4 (ta je o rozvrhu balení, tahle o reálné fyzické zásobě); notifikuje jednou, znovu se vyzbrojí až po ručním nastavení skladu
 - [x] Actionable tlačítka "Vzal(a) jsem" (potvrdí dávku) a "Odložit" (odloží nag o `escalation_repeat_minutes`, nic nepotvrzuje ani neoznačuje jako vynechané) na denní připomínce i eskalaci — `notify.send_message` `data.actions` + sdílený listener na `mobile_app_notification_action`
 - [ ] **Nedokončeno:** živé ověření na reálném telefonu s Home Assistant Companion app — zatím jen standalone simulace logiky (decrement guard, notify-once/re-arm, snooze okno), stejně jako u M4
+
+### M9 — Reálný konec periody v kalendáři ✅ (v0.9.0)
+
+Vyžádáno živě, hned po M8 — doplňuje sekci 2.1.
+
+- [x] `date.*_last_period_end` + `perioder.log_period_end` — volitelný reálný konec periody (poslední den menstruace, včetně), validace proti budoucímu datu i proti datu před začátkem
+- [x] Kalendářový blok "Perioda" pro aktuální cyklus použije reálný rozsah (a jinou popisku "Perioda (potvrzený konec)") místo odhadu z `period_duration`, jakmile je konec zalogovaný; ostatní (minulé/budoucí, stále jen predikované) bloky nedotčeny
+- [x] Reset `last_period_end` při dalším `log_period_start` (per-cyklus fakt, stejná logika jako `pms_override` z M7)
+- [ ] **Nedokončeno:** živé ověření v reálném kalendářovém view HA — zatím jen standalone simulace datové aritmetiky (`_period_and_fertile_blocks`)
 
 ### v2.0.0 — Budoucí rozšíření (mimo současný rozsah)
 - [ ] Vlastní Lovelace karta (JS) — gauge/vizualizace na míru místo standardních karet

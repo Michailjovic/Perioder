@@ -98,6 +98,7 @@ PLATFORMS: list[Platform] = [
 ]
 
 SERVICE_LOG_PERIOD_START = "log_period_start"
+SERVICE_LOG_PERIOD_END = "log_period_end"
 SERVICE_SET_PMS_OVERRIDE = "set_pms_override"
 SERVICE_LOG_PILL_TAKEN = "log_pill_taken"
 SERVICE_START_NEW_PACK = "start_new_pack"
@@ -111,6 +112,7 @@ SERVICE_SET_PILLS_IN_STOCK = "set_pills_in_stock"
 _PMS_OVERRIDE_VALUES = {"auto": None, "active": True, "inactive": False}
 _ALL_SERVICES = (
     SERVICE_LOG_PERIOD_START,
+    SERVICE_LOG_PERIOD_END,
     SERVICE_SET_PMS_OVERRIDE,
     SERVICE_LOG_PILL_TAKEN,
     SERVICE_START_NEW_PACK,
@@ -391,6 +393,23 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_LOG_PERIOD_START,
         handle_log_period_start,
         schema=vol.Schema({**_ENTRY_TARGET_SCHEMA, vol.Optional("date"): cv.date}),
+    )
+
+    async def handle_log_period_end(call: ServiceCall) -> None:
+        log_date = call.data["date"]
+        if log_date > date.today():
+            raise ValueError("Cannot log a period end in the future")
+        data = _get_entry_data(hass, call.data["config_entry_id"])
+        last_start = data.last_period_start
+        if last_start is not None and log_date < last_start:
+            raise ValueError("Period end cannot be before its logged start")
+        await data.async_set_last_period_end(log_date)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_LOG_PERIOD_END,
+        handle_log_period_end,
+        schema=vol.Schema({**_ENTRY_TARGET_SCHEMA, vol.Required("date"): cv.date}),
     )
 
     async def handle_set_pms_override(call: ServiceCall) -> None:

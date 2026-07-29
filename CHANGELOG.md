@@ -5,6 +5,58 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.1] - 2026-07-29
+
+Dashboard-only fix, found live: no integration code changed.
+
+### Fixed
+
+- **`dashboard_test.yaml` calendar cards clipped multi-day event bars.**
+  HA's built-in calendar card's default month grid (`dayGridMonth`) has a
+  fixed row height with no config option to make it taller; in a narrower
+  dashboard column, a multi-day block's label/bar can render below the
+  visible area of its cell - so a real, correctly-computed period could be
+  sitting right there in the data and still be invisible on screen. Not a
+  data/logic bug (verified: `_period_and_fertile_blocks()` generates the
+  right dates) - a Lovelace layout limitation. Both `cycle_calendar` and
+  `shared_calendar` cards now set `initial_view: listWeek` (events as a
+  list, no grid cells to clip). A commented-out `card-mod` snippet is left
+  in the file for anyone who'd rather keep the month grid and just force it
+  taller instead (requires the card-mod HACS frontend addon).
+
+## [0.9.0] - 2026-07-29
+
+Second user-requested feature after live testing: the calendar's period
+block can now reflect the real, confirmed span of a period instead of only
+the `period_duration` estimate.
+
+### Added
+
+- **`date.*_last_period_end`** - optional, settable date entity: the real
+  last day of bleeding for the current period, inclusive. `perioder.log_period_end`
+  is the matching service. Validated the same way as `last_period_start`
+  (can't be in the future) plus one more rule: can't be before the logged
+  start. Automatically reset back to unset every time a new
+  `log_period_start` happens - it's a per-cycle fact, same reasoning as the
+  M7 `pms_override` reset.
+- **`cycle_calendar` / `shared_calendar`**: the period block for the
+  *current* cycle now uses the real start-to-end span (labeled "Perioda
+  (potvrzený konec)" on the detailed calendar) once `last_period_end` is
+  logged, instead of always assuming exactly `period_duration` days. Every
+  other period block - past or future, still only predicted - is
+  unaffected; only the one cycle matching `last_period_start` exactly can
+  be overridden, and only if the confirmed end date isn't before its start
+  (a stale/bad value is silently ignored rather than corrupting the block).
+
+### Notes
+
+- Verified via a standalone re-implementation of `_period_and_fertile_blocks()`'s
+  date arithmetic (same method used for the M3 calendar logic and the M4
+  notification engine) - covers: no real end (unchanged predicted
+  behavior), real end shorter than `period_duration`, real end longer,
+  other cycles staying untouched, and a bad (pre-start) real end being
+  ignored. Not yet checked against a real Home Assistant calendar view.
+
 ## [0.8.0] - 2026-07-29
 
 First user-requested feature batch after live testing began: a real pill

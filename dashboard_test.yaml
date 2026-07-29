@@ -1,4 +1,4 @@
-# Perioder v0.5.0 - test dashboard (single VIEW, not a whole-dashboard file)
+# Perioder v0.9.1 - test dashboard (single VIEW, not a whole-dashboard file)
 #
 # Setup:
 #   1. Integration must be named exactly "Test" during setup.
@@ -24,7 +24,7 @@ path: perioder-test
 cards:
   - type: markdown
     content: >-
-      **Perioder v0.8.0 - test dashboard.** Klikni na "Zapsat začátek
+      **Perioder v0.9.1 - test dashboard.** Klikni na "Zapsat začátek
       periody" a vyber datum - i zpětně, pokud se to dozvíš až druhý den.
       "PMS přebití" testuje PMS okno bez čekání na skutečné datum. Antikoncepci
       nejdřív jednou nastartuj přes `perioder.start_new_pack` (Developer
@@ -84,6 +84,8 @@ cards:
     entities:
       - entity: date.test_last_period_start
         name: Zapsat začátek periody
+      - entity: date.test_last_period_end
+        name: Zapsat konec periody
       - entity: select.test_pms_override
         name: PMS přebití
       - entity: button.test_confirm_pill_taken
@@ -121,10 +123,27 @@ cards:
 
   - type: calendar
     title: Kalendář cyklu (detailní)
+    initial_view: listWeek
     entities:
       - calendar.test_cycle_calendar
 
   - type: calendar
     title: Sdílený kalendář (bez detailu)
+    initial_view: listWeek
     entities:
       - calendar.test_shared_calendar
+
+  # Měsíční mřížka (dayGridMonth, výchozí initial_view) má v HA pevnou výšku
+  # řádku - u vícedenních bloků (perioda, plodné dny) se popisek/pruh může
+  # vykreslit mimo viditelnou oblast buňky, hlavně v užším sloupci dashboardu.
+  # listWeek tomu se vyhýbá úplně (eventy jako seznam, ne pruhy v mřížce).
+  # Pokud chceš radši zůstat u měsíční mřížky a jen ji zvětšit, jde to jen
+  # přes card-mod (HACS frontend doplněk), např.:
+  #
+  # - type: calendar
+  #   title: Kalendář cyklu (detailní)
+  #   entities:
+  #     - calendar.test_cycle_calendar
+  #   card_mod:
+  #     style: |
+  #       ha-full-calendar { min-height: 700px; }

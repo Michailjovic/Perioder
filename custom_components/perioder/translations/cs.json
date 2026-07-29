@@ -191,6 +191,9 @@
     "date": {
       "last_period_start": {
         "name": "Zapsat začátek periody"
+      },
+      "last_period_end": {
+        "name": "Zapsat konec periody"
       }
     },
     "select": {
