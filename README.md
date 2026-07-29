@@ -6,6 +6,16 @@ Home Assistant custom integration for menstrual cycle and contraception tracking
 
 > This is a home-automation tool, not a medical device. Calendar-based fertility predictions are not a reliable contraception method on their own. Always consult a healthcare professional.
 
+## The model: cycle owner, supporter, administrator
+
+Three roles, deliberately not tied to any particular relationship shape:
+
+- **Cycle owner**: the person whose cycle/contraception is being tracked. One config entry ("integration instance") per cycle owner - track as many people in one Home Assistant as you want, each fully independent. The cycle owner always sees everything about themselves on their own dashboard.
+- **Supporter**: anyone the administrator wants kept informed about a cycle owner - partner, roommate, family, whoever. A supporter only sees the notification categories (PMS window, upcoming period, contraception restock, missed dose, fertility window) and detail level (general vs. detailed) they've been subscribed to, and only for the cycle owner(s) they're subscribed under. The same person can be a supporter for several different cycle owners at once (e.g. polyamory), and each of those subscriptions is configured independently - there's no assumption of a single monogamous pair.
+- **Administrator**: whoever has admin rights on the Home Assistant instance - which is also whoever can reach Settings > Devices & Services in the first place, so this isn't an extra restriction, just how the platform already works. The administrator decides which supporters exist and what they're subscribed to, via Options Flow ("Configure" on the integration) or `perioder.update_settings`. There's no separate cycle-owner-side consent step in this project's model - see `ANALYZA-A-ROADMAP.md` section 2.5 for the reasoning.
+
+One practical consequence: the PMS-window binary sensor always exists (so an admin can verify it in Developer Tools, or wire it into an automation), but it's deliberately left off the example owner-facing dashboard card - PMS visibility is a supporter-notification thing, not something the cycle owner needs surfaced about themselves.
+
 ## Installation (HACS)
 
 1. HACS > Integrations > the three-dot menu > Custom repositories.
@@ -13,7 +23,7 @@ Home Assistant custom integration for menstrual cycle and contraception tracking
 3. Install **Perioder** and restart Home Assistant.
 4. Settings > Devices & Services > Add Integration > **Perioder**.
 
-## First use / testing (v0.5.0)
+## First use / testing (v0.7.0)
 
 1. During setup, name it exactly **Test** (this becomes the device name and
    determines entity IDs - the ready-made dashboard below assumes this name).
@@ -63,7 +73,7 @@ command/NFC tag? `perioder.log_period_start`, `perioder.set_pms_override`,
 `perioder.export_symptom_log` all exist and do exactly the same thing as
 the matching entities/Options Flow.
 
-## Current scope (v0.5.0)
+## Current scope (v0.7.0)
 
 - Config + options flow (settings, supporter management), plus
   `perioder.update_settings` for changing settings outside the flow -
@@ -99,20 +109,48 @@ the matching entities/Options Flow.
 Not yet implemented: `pms`/`period`/`fertility` as their own
 transition-triggered supporter notifications (e.g. "PMS window just
 started"), actionable notification buttons (confirming from the push
-notification itself, not just the dashboard), history/trend graph cards
-(the sensors have the needed data, no graph card is wired into
-`dashboard_test.yaml` yet), and tests. The notification dispatch code
-also hasn't been exercised against a live Home Assistant instance yet -
-only its decision logic has been verified standalone; please report if a
+notification itself, not just the dashboard), and history/trend graph
+cards (the sensors have the needed data, no graph card is wired into
+`dashboard_test.yaml` yet). The notification dispatch code also hasn't
+been exercised against a live Home Assistant instance yet - only its
+decision logic has been verified standalone; please report if a
 notification doesn't actually arrive. See `CHANGELOG.md` and
 `ANALYZA-A-ROADMAP.md`.
 
-## Optional automation blueprints (v0.6.0)
+## Optional automation blueprints
 
 Lighting scene during period/PMS, adding to a shopping list when the
 contraception pack runs low or a period is coming up, and a heating pad
 reminder - none of these are part of the integration itself, so nothing
 installs automatically. See `BLUEPRINTS.md` for import links and details.
+
+## Running the tests
+
+`cycle_math.py` and `pill_math.py` are plain Python with no Home Assistant
+dependency by design, specifically so they can be unit tested without
+installing Home Assistant itself:
+
+```bash
+pip install pytest
+pytest tests/ -v
+```
+
+`tests/conftest.py` loads just those two modules (plus `const.py`) directly
+by file path instead of importing the integration package normally, since
+the normal import path runs `custom_components/perioder/__init__.py`, which
+*does* need Home Assistant. Everything else (config flow, entities,
+services, the notification engine) isn't covered by this test suite yet -
+it's been checked via standalone logic simulations during development (see
+`CHANGELOG.md`) and manual testing against a real Home Assistant instance,
+not automated tests.
+
+## Known gaps
+
+- No dashboard screenshots in this README yet - the author hasn't captured
+  any from a running instance.
+- The notification engine (M4) hasn't been confirmed working against a
+  real `mobile_app` device end-to-end.
+- See "Not yet implemented" above and `ANALYZA-A-ROADMAP.md` for the rest.
 
 ## Project docs
 

@@ -5,6 +5,61 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.7.0] - 2026-07-29
+
+M7 (partial) - tests, a real bug found while reviewing edge cases, and
+documentation. Screenshots and a couple of other M7 items are still open -
+see Notes.
+
+### Fixed
+
+- **PMS override didn't reset between cycles.** `perioder.set_pms_override`
+  (and the matching `select` entity) is documented as a *per-cycle* manual
+  override (ANALYZA-A-ROADMAP.md section 2.2 - "protože to nemusí platit
+  každý měsíc stejně"), but `storage.async_set_last_period_start()` never
+  actually cleared it: forcing the PMS window on/off for one cycle would
+  silently carry over into every future cycle until someone remembered to
+  set it back to "auto" by hand. Logging a new period start now resets
+  `pms_override` to `None` (automatic) - found while writing the "PMS
+  override across cycles" edge case from the M7 checklist, not reported by
+  a user.
+
+### Added
+
+- `tests/test_cycle_math.py`, `tests/test_pill_math.py` - 26 unit tests
+  covering both pure math modules: every cycle day maps to exactly one
+  phase (no gaps), fertility/PMS window boundaries, the manual PMS
+  override, and the M7 edge cases specifically - changing regimen_type
+  (pack_size/pause_days) mid-pack, deactivating and reactivating
+  contraception tracking, and backdating a confirmation.
+  `tests/conftest.py` loads `cycle_math.py`/`pill_math.py`/`const.py`
+  directly by file path rather than importing the integration package
+  normally, since the normal path runs `__init__.py`, which needs Home
+  Assistant - these two modules are pure Python by design specifically so
+  they don't need it for testing.
+- `.github/workflows/test.yaml`: runs `pytest tests/` on every push/PR.
+- README: a "The model: cycle owner, supporter, administrator" section
+  explaining the three roles and how they relate (was previously only in
+  `ANALYZA-A-ROADMAP.md`), a "Running the tests" section, and a "Known
+  gaps" section consolidating what's honestly still missing.
+
+### Notes
+
+- **Not done in this release, from the M7 checklist**: dashboard
+  screenshots in the README (nothing to capture from - no running Home
+  Assistant instance available while developing this), and the "reject a
+  future date" edge case is enforced at the entity/service layer
+  (`date.py`, `__init__.py`'s three date-accepting services all raise
+  `ValueError`) rather than in `pill_math.py` itself, so it's verified by
+  code inspection here, not a new automated test.
+- Given the PMS-override bug above, this is a good moment to say plainly:
+  this project's tests cover the pure math modules only. Config flow,
+  entities, services, and the notification engine are still verified by
+  standalone logic simulations and manual testing, not automated tests -
+  if you find something else that doesn't match its documentation, that's
+  exactly the kind of gap this release's process was meant to start
+  closing.
+
 ## [0.6.0] - 2026-07-29
 
 M6 - blueprints. These are optional automation blueprints on top of the

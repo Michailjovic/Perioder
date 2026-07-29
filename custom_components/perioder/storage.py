@@ -161,8 +161,18 @@ class PerioderData:
         return None
 
     async def async_set_last_period_start(self, value: date) -> None:
+        """Log a new period start - and with it, a new cycle.
+
+        Resets `pms_override` back to automatic (`None`): the override is
+        documented as being *per cycle* (ANALYZA-A-ROADMAP.md section 2.2 -
+        "protože to nemusí platit každý měsíc stejně"), so carrying last
+        cycle's manual on/off across into a brand new one would silently
+        contradict that. Found while reviewing PMS-override-across-cycles
+        as an M7 edge case - this was a real gap, not a hypothetical one.
+        """
         if self.data:
             self.data["last_period_start"] = value.isoformat()
+            self.data["pms_override"] = None
             await self.async_save()
 
     @property

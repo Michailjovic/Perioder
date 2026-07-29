@@ -190,13 +190,13 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - [x] Blueprint: připomínka ohřívacího polštářku (`heating_pad_reminder.yaml`)
 - Viz `BLUEPRINTS.md` pro import a popis; ověřeno jen staticky (konzistence `!input` vs deklarované vstupy), ne živým importem do běžící instance
 
-### M7 — Polish, testy a GitHub dokumentace (uzavírá v1.0.0)
-- [ ] `tests/test_pill_math.py`, `tests/test_cycle_math.py`
-- [ ] Edge cases: změna regimen_type uprostřed balení, vysazení a opětovné zapnutí, zpětné logování, budoucí datum (odmítnout), PMS override napříč cykly
-- [ ] `README.md`: instalace (HACS + manuál), first-use postup, popis modelu vlastník cyklu/podporovatel/administrátor, příklady automatizací a blueprintů, disclaimer
-- [ ] `hacs.json`, GitHub Actions (`hassfest`, `hacs` validace) — stejně jako u cyclist
-- [ ] `CHANGELOG.md` se semver — v1.0.0 = tento rozsah, bez vlastní frontend karty
-- [ ] Screenshoty dashboardu do README
+### M7 — Polish, testy a GitHub dokumentace (uzavírá v1.0.0) — z části hotovo (v0.7.0)
+- [x] `tests/test_pill_math.py`, `tests/test_cycle_math.py` (26 testů) + `.github/workflows/test.yaml`
+- [x] Edge cases prošlé: změna regimen_type uprostřed balení, vysazení a opětovné zapnutí, zpětné logování — otestováno; budoucí datum (odmítnout) — ověřeno inspekcí kódu (3 služby + date entita), ne novým testem; PMS override napříč cykly — **byla to skutečná chyba, opraveno** (viz CHANGELOG v0.7.0)
+- [x] `README.md`: instalace, first-use, model vlastník cyklu/podporovatel/administrátor, blueprinty, disclaimer, sekce "Running the tests" a "Known gaps"
+- [x] `hacs.json`, GitHub Actions (`hassfest`, `hacs` validace) — hotovo už od M1
+- [x] `CHANGELOG.md` se semver
+- [ ] **Nedokončeno:** Screenshoty dashboardu do README — není z čeho pořídit bez běžící HA instance, na to je potřeba živé testování
 
 ### v2.0.0 — Budoucí rozšíření (mimo současný rozsah)
 - [ ] Vlastní Lovelace karta (JS) — gauge/vizualizace na míru místo standardních karet
