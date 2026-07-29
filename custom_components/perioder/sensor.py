@@ -9,7 +9,7 @@ via settings.get_settings(), not from the runtime Store - see storage.py.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, time
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -19,6 +19,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
 from . import cycle_math as cm
+from . import pill_math as pm
 from .const import DOMAIN
 from .settings import get_settings
 from .storage import PerioderData
@@ -35,6 +36,8 @@ async def async_setup_entry(
             PhaseSensor(entry, data),
             FertilitySensor(entry, data),
             NextPeriodSensor(entry, data),
+            ContraceptionStatusSensor(entry, data),
+            PackDaysRemainingSensor(entry, data),
         ]
     )
 
@@ -143,3 +146,52 @@ class NextPeriodSensor(_PerioderSensorBase):
             return None
         settings = get_settings(self._entry)
         return cm.days_until_next_period(last_start, settings["cycle_length"], date.today())
+
+
+class ContraceptionStatusSensor(_PerioderSensorBase):
+    """Today's contraception status: inactive / paused / pending / taken / missed."""
+
+    _attr_device_class = "enum"
+    _attr_options = ["inactive", "paused", "pending", "taken", "missed"]
+
+    def __init__(self, entry: ConfigEntry, data: PerioderData) -> None:
+        super().__init__(entry, data, "contraception_status")
+
+    @property
+    def native_value(self) -> str:
+        settings = get_settings(self._entry)
+        contraception = self._data.contraception
+        reminder_time = time.fromisoformat(settings["reminder_time"])
+        return pm.pill_status(
+            active=contraception["active"],
+            pack_start_date=(
+                date.fromisoformat(contraception["pack_start_date"])
+                if contraception["pack_start_date"]
+                else None
+            ),
+            today=date.today(),
+            pack_size=settings["pack_size"],
+            pause_days=settings["pause_days"],
+            pill_log=contraception["pill_log"],
+            now=datetime.now(),
+            reminder_time=reminder_time,
+        )
+
+
+class PackDaysRemainingSensor(_PerioderSensorBase):
+    """Days left in the current pack's active-pill part (0 on the last pill day)."""
+
+    _attr_native_unit_of_measurement = "d"
+
+    def __init__(self, entry: ConfigEntry, data: PerioderData) -> None:
+        super().__init__(entry, data, "pack_days_remaining")
+
+    @property
+    def native_value(self) -> int | None:
+        settings = get_settings(self._entry)
+        contraception = self._data.contraception
+        if not contraception["active"] or not contraception["pack_start_date"]:
+            return None
+        pack_start = date.fromisoformat(contraception["pack_start_date"])
+        day = pm.day_in_pack(pack_start, date.today(), settings["pack_size"], settings["pause_days"])
+        return pm.days_until_pack_ends(day, settings["pack_size"])

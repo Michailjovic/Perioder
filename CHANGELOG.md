@@ -5,6 +5,46 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.2.0] - 2026-07-29
+
+M2 - contraception core. First release that does something with contraception
+data beyond storing it: pack-day status, a one-tap "confirm taken" button,
+and the matching services. This was the original motivating problem for the
+whole project (replacing a dumb daily alarm) - see `ANALYZA-A-ROADMAP.md`.
+
+### Added
+
+- `pill_math.py` - pure pack-day math, no Home Assistant dependencies (same
+  pattern as `cycle_math.py`): `day_in_pack`, `is_pill_day`,
+  `days_until_pack_ends`, and `pill_status` (today's status: `inactive` /
+  `paused` / `pending` / `taken` / `missed`, the last one based on
+  `reminder_time` + a grace period, default 60 minutes). Verified standalone
+  against a 21/7 regimen: pill days, pause days, cycle wraparound, and all
+  five statuses.
+- `sensor.contraception_status` and `sensor.pack_days_remaining`.
+- `binary_sensor.contraception_active` and `binary_sensor.pill_taken_today`.
+- `button.confirm_pill_taken` - one tap logs today's dose as taken; calls
+  the same storage method as the new service below.
+- Services: `perioder.log_pill_taken` (optional date, for backdating),
+  `perioder.start_new_pack` (optional date), `perioder.set_contraception_active`.
+- `dashboard_test.yaml` and `lovelace_example.yaml`/README updated with the
+  new entities and a one-time `start_new_pack` call to begin testing.
+
+### Notes
+
+- The daily reminder + escalation notification (also listed under M2 on the
+  roadmap) is deferred to M4, where it's built together with the supporter
+  notification engine - both need the same "send + track an actionable
+  notification" plumbing, and there's no owner-facing notify target
+  configured yet to build it against. Today's status is fully computable
+  and visible on the dashboard/Developer Tools without it; only the *push
+  notification* is still manual for now.
+- `pack_size`/`pause_days` are the actual source of truth for the math
+  regardless of which `regimen_type` label is picked in Config/Options Flow
+  - all three built-in regimens just pre-fill those two numbers in the form.
+  Not a new issue introduced here, just documented while implementing
+  `pill_math.py` against the existing `settings.py`.
+
 ## [0.1.5] - 2026-07-29
 
 Bugfix release: v0.1.4 fixed the *object ID* part but dropped the device

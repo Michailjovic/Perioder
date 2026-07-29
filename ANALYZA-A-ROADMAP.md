@@ -25,6 +25,7 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - Nastavitelná `cycle_length` a `period_duration`, žádné dopočítávání z historie ve výchozím stavu — nastavení má přednost.
 - Volitelně navíc BBT/CM/LH pro symptothermální zpřesnění (pozdější fáze, není nutné pro MVP).
 - Kalendář (`calendar.perioder`) s výhledem 3 měsíce dopředu — perioda + fertilní okno.
+- **(nápad z 2026-07-29, k rozpracování)** Kalendář aktuálního cyklu by měl zobrazovat i historii antikoncepce po dnech — kdy byl prášek potvrzeně vzatý (`pill_log`), a vizuálně odlišit dny, kdy bylo potvrzení opožděné oproti `reminder_time` (ne jen binárně vzato/nevzato, ale i míru zpoždění). Pravděpodobně `calendar.py` event description/vlastní atributy per den, nebo doplňková karta vedle kalendáře — rozhodnout při implementaci M3/M5.
 - Cíl (`goal`) ovlivňuje tón a typ notifikací.
 
 ### 2.2 PMS / emoční okno
@@ -153,23 +154,24 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 
 **Poznámka:** v0.1.0 zároveň natáhla dopředu část M3 (viz níže), aby šlo hned něco reálně vidět na dashboardu s testovacími daty — čistě M1 (bez entit) by samo o sobě nebylo testovatelné.
 
-### M2 — Antikoncepční jádro
-- [ ] `pill_math.py`: is_pill_day, zbývající dny balení, missed detekce
-- [ ] `sensor.py` + `binary_sensor.py` pro antikoncepci
-- [ ] Služby: `log_pill_taken`, `start_new_pack`, `set_contraception_active`
-- [ ] Denní připomínka + eskalace (timer helper + actionable notification)
-- [ ] Ranní "vynecháno" souhrn + propojení s fertilním oknem
+### M2 — Antikoncepční jádro ✅ z části (v0.2.0)
+- [x] `pill_math.py`: is_pill_day, zbývající dny balení, stav dne (`pill_status`)
+- [x] `sensor.py` + `binary_sensor.py` pro antikoncepci, `button.py` (potvrzení jedním klikem)
+- [x] Služby: `log_pill_taken`, `start_new_pack`, `set_contraception_active`
+- [ ] Denní připomínka + eskalace (timer helper + actionable notification) — přesunuto k M4, sdílí infrastrukturu s podporovatelským notifikačním enginem (viz CHANGELOG v0.2.0)
+- [ ] Ranní "vynecháno" souhrn + propojení s fertilním oknem — bude řešeno spolu s M4
 
 ### M3 — Cyklus, plodnost a PMS okno (částečně hotovo v v0.1.0)
 - [x] `sensor.py`: cycle_day, phase, fertility, next_period
 - [x] `binary_sensor.py`: period_active, pms_active (s ručním přebitím)
 - [x] Služby: `log_period_start`, `set_pms_override`
-- [ ] `calendar.py` — detailní predikce 3 měsíce dopředu
+- [ ] `calendar.py` — detailní predikce 3 měsíce dopředu, včetně zobrazení `pill_log` (vzato/vynecháno/opožděno) v aktuálním cyklu (viz nápad v 2.1)
 - [ ] Služba: `update_settings` (zatím se nastavení mění jen přes Options Flow)
 
 ### M4 — Podporovatelé a notifikace
-- [ ] Datový model podporovatelů (cíl, kategorie, detail úroveň)
+- [x] Datový model podporovatelů (cíl, kategorie, detail úroveň) — hotovo už v Options Flow (v0.1.1)
 - [ ] Notifikační engine respektující odběry a úroveň detailu per příjemce
+- [ ] Denní připomínka antikoncepce + eskalace (actionable notification, přesunuto z M2 — viz CHANGELOG v0.2.0), včetně ranního "vynecháno" souhrnu a propojení s fertilním oknem
 - [ ] `perioder.pause_notifications`
 
 ### M5 — Symptomy, sdílený kalendář, dashboard

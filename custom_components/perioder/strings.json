@@ -126,6 +126,19 @@
       },
       "next_period": {
         "name": "Next period"
+      },
+      "contraception_status": {
+        "name": "Contraception status",
+        "state": {
+          "inactive": "Inactive",
+          "paused": "Pause days",
+          "pending": "Pending",
+          "taken": "Taken",
+          "missed": "Missed"
+        }
+      },
+      "pack_days_remaining": {
+        "name": "Pack days remaining"
       }
     },
     "binary_sensor": {
@@ -134,6 +147,12 @@
       },
       "pms_active": {
         "name": "PMS window"
+      },
+      "contraception_active": {
+        "name": "Contraception tracking active"
+      },
+      "pill_taken_today": {
+        "name": "Pill taken today"
       }
     },
     "date": {
@@ -149,6 +168,11 @@
           "active": "Force active",
           "inactive": "Force inactive"
         }
+      }
+    },
+    "button": {
+      "confirm_pill_taken": {
+        "name": "Confirm pill taken"
       }
     }
   }

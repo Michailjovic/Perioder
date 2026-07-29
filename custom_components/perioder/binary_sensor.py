@@ -19,7 +19,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
 from . import cycle_math as cm
-from .const import DOMAIN
+from .const import CONTRACEPTION_TAKEN, DOMAIN
 from .settings import get_settings
 from .storage import PerioderData
 
@@ -33,6 +33,8 @@ async def async_setup_entry(
         [
             PeriodActiveBinarySensor(entry, data),
             PmsActiveBinarySensor(entry, data),
+            ContraceptionActiveBinarySensor(entry, data),
+            PillTakenTodayBinarySensor(entry, data),
         ]
     )
 
@@ -101,3 +103,28 @@ class PmsActiveBinarySensor(_PerioderBinarySensorBase):
     @property
     def extra_state_attributes(self) -> dict[str, bool | None]:
         return {"manual_override": self._data.pms_override}
+
+
+class ContraceptionActiveBinarySensor(_PerioderBinarySensorBase):
+    """On while contraception tracking is turned on (`perioder.set_contraception_active`)."""
+
+    def __init__(self, entry: ConfigEntry, data: PerioderData) -> None:
+        super().__init__(entry, data, "contraception_active")
+
+    @property
+    def is_on(self) -> bool:
+        return self._data.contraception["active"]
+
+
+class PillTakenTodayBinarySensor(_PerioderBinarySensorBase):
+    """On once today's dose has been confirmed (`perioder.log_pill_taken`)."""
+
+    def __init__(self, entry: ConfigEntry, data: PerioderData) -> None:
+        super().__init__(entry, data, "pill_taken_today")
+
+    @property
+    def is_on(self) -> bool | None:
+        contraception = self._data.contraception
+        if not contraception["active"]:
+            return None
+        return contraception["pill_log"].get(date.today().isoformat()) == CONTRACEPTION_TAKEN

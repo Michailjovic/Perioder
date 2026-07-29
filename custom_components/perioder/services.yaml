@@ -47,3 +47,68 @@ set_pms_override:
               value: "active"
             - label: Force inactive
               value: "inactive"
+
+log_pill_taken:
+  name: Log pill taken
+  description: >-
+    Confirm today's contraception dose as taken for one cycle owner. Defaults
+    to today if date is omitted - accepts a past date for backdating. The
+    "Confirm pill taken" button entity calls this for today only; use this
+    service for backdating or automations/voice/NFC.
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    date:
+      name: Date
+      description: Optional backdated date.
+      example: "2026-07-28"
+      selector:
+        date:
+
+start_new_pack:
+  name: Start new contraception pack
+  description: >-
+    Start a new pack for one cycle owner, resetting the pack-day count.
+    Defaults to today if date is omitted - accepts a past date for
+    backdating. Also turns contraception tracking on.
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    date:
+      name: Pack start date
+      description: Optional backdated pack start date.
+      example: "2026-07-01"
+      selector:
+        date:
+
+set_contraception_active:
+  name: Set contraception tracking active
+  description: >-
+    Turn contraception tracking on or off for one cycle owner without
+    losing the pill log history - use this when starting or pausing
+    contraception use entirely, not for a single missed/paused day.
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    active:
+      name: Active
+      description: true = tracking on, false = tracking off.
+      required: true
+      example: true
+      selector:
+        boolean:

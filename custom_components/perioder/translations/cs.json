@@ -126,6 +126,19 @@
       },
       "next_period": {
         "name": "Další perioda"
+      },
+      "contraception_status": {
+        "name": "Stav antikoncepce",
+        "state": {
+          "inactive": "Neaktivní",
+          "paused": "Dny pauzy",
+          "pending": "Čeká se",
+          "taken": "Vzato",
+          "missed": "Vynecháno"
+        }
+      },
+      "pack_days_remaining": {
+        "name": "Zbývající dny balení"
       }
     },
     "binary_sensor": {
@@ -134,6 +147,12 @@
       },
       "pms_active": {
         "name": "PMS okno"
+      },
+      "contraception_active": {
+        "name": "Sledování antikoncepce aktivní"
+      },
+      "pill_taken_today": {
+        "name": "Dnešní prášek vzat"
       }
     },
     "date": {
@@ -149,6 +168,11 @@
           "active": "Vynutit aktivní",
           "inactive": "Vynutit neaktivní"
         }
+      }
+    },
+    "button": {
+      "confirm_pill_taken": {
+        "name": "Potvrdit prášek"
       }
     }
   }
