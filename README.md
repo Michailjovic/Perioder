@@ -13,7 +13,7 @@ Home Assistant custom integration for menstrual cycle and contraception tracking
 3. Install **Perioder** and restart Home Assistant.
 4. Settings > Devices & Services > Add Integration > **Perioder**.
 
-## First use / testing (v0.4.0)
+## First use / testing (v0.5.0)
 
 1. During setup, name it exactly **Test** (this becomes the device name and
    determines entity IDs - the ready-made dashboard below assumes this name).
@@ -48,49 +48,64 @@ Home Assistant custom integration for menstrual cycle and contraception tracking
    and add supporters (notification target, categories, detail level) - only
    reachable by an HA administrator, by design. `perioder.update_settings`
    does the same thing for settings from an automation/voice/NFC.
+8. The symptom buttons log a timestamped entry each press;
+   `sensor.*_last_symptom` shows the most recent one. `perioder.export_symptom_log`
+   writes the full history to a CSV under Home Assistant's `www/` folder.
+9. The shared calendar shows only generic "Citlivé období" blocks - which
+   block types it reflects at all is the `shared_calendar_categories`
+   setting (defaults to just periods).
 
 Prefer Developer Tools > Actions, or calling this from an automation/voice
 command/NFC tag? `perioder.log_period_start`, `perioder.set_pms_override`,
 `perioder.log_pill_taken`, `perioder.start_new_pack`,
-`perioder.set_contraception_active`, `perioder.update_settings`, and
-`perioder.pause_notifications` all exist and do exactly the same thing as
+`perioder.set_contraception_active`, `perioder.update_settings`,
+`perioder.pause_notifications`, `perioder.log_symptom`, and
+`perioder.export_symptom_log` all exist and do exactly the same thing as
 the matching entities/Options Flow.
 
-## Current scope (v0.4.0)
+## Current scope (v0.5.0)
 
 - Config + options flow (settings, supporter management), plus
-  `perioder.update_settings` for changing settings outside the flow.
+  `perioder.update_settings` for changing settings outside the flow -
+  covers every setting Options Flow does.
 - Settings/supporters live in the config entry; runtime state (cycle,
   contraception, symptoms, notification bookkeeping) lives in a separate
   per-entry Store.
 - Sensors: cycle day, phase, fertility, next period, contraception status
-  (`inactive`/`paused`/`pending`/`taken`/`missed`), pack days remaining.
+  (`inactive`/`paused`/`pending`/`taken`/`missed`), pack days remaining,
+  last symptom logged, supporters overview (count + per-supporter
+  attributes, for a dashboard markdown card).
 - Binary sensors: period active, PMS window (with manual override),
   contraception tracking active, pill taken today.
 - Date entity: log/backdate the period start directly from the UI.
 - Select entity: PMS override (auto / active / inactive).
-- Button entity: confirm today's pill taken.
+- Button entities: confirm today's pill taken, log each of the 4 built-in
+  symptoms (cramps, headache, low energy, mood change).
 - Switch entity: pause all notifications for this cycle owner.
-- Calendar entity: predicted period/fertile/pack-pause blocks (forward and
-  backward), plus every logged pill confirmation as an event, with the
-  delay vs. the reminder time in its description.
+- Calendar entities: `cycle_calendar` (detailed - predicted period/fertile/
+  pack-pause blocks plus every logged pill confirmation, with the delay vs.
+  the reminder time) and `shared_calendar` (generic "sensitive period"
+  blocks with no detail, for exporting to a shared family calendar -
+  which block types show up at all is configurable).
 - Notifications: daily contraception reminder + escalation to your own
   device, a missed-dose alert to subscribed supporters (with a
   fertile-window heads-up folded in), and a one-shot "pack running low"
   notice to supporters subscribed to restock alerts.
 - Services: `log_period_start`, `set_pms_override`, `log_pill_taken`,
   `start_new_pack`, `set_contraception_active`, `update_settings`,
-  `pause_notifications` (same effect as the entities/Options Flow above,
-  for automations/voice/NFC).
+  `pause_notifications`, `log_symptom`, `export_symptom_log` (same effect
+  as the entities/Options Flow above, for automations/voice/NFC).
 
 Not yet implemented: `pms`/`period`/`fertility` as their own
 transition-triggered supporter notifications (e.g. "PMS window just
 started"), actionable notification buttons (confirming from the push
-notification itself, not just the dashboard), and symptom logging. The
-notification dispatch code in this release also hasn't been exercised
-against a live Home Assistant instance yet - only its decision logic has
-been verified standalone; please report if a notification doesn't actually
-arrive. See `CHANGELOG.md` and `ANALYZA-A-ROADMAP.md`.
+notification itself, not just the dashboard), history/trend graph cards
+(the sensors have the needed data, no graph card is wired into
+`dashboard_test.yaml` yet), blueprints, and tests. The notification
+dispatch code also hasn't been exercised against a live Home Assistant
+instance yet - only its decision logic has been verified standalone;
+please report if a notification doesn't actually arrive. See
+`CHANGELOG.md` and `ANALYZA-A-ROADMAP.md`.
 
 ## Project docs
 

@@ -24,6 +24,9 @@ CONF_ESCALATION_REPEAT_MINUTES = "escalation_repeat_minutes"
 CONF_ESCALATION_MAX_COUNT = "escalation_max_count"
 CONF_RESTOCK_DAYS_BEFORE = "restock_days_before"
 
+# Config / options keys - shared calendar (M5)
+CONF_SHARED_CALENDAR_CATEGORIES = "shared_calendar_categories"
+
 DEFAULT_CYCLE_LENGTH = 28
 DEFAULT_PERIOD_DURATION = 5
 DEFAULT_GOAL = "track"
@@ -40,6 +43,16 @@ DEFAULT_ESCALATION_GRACE_MINUTES = 60
 DEFAULT_ESCALATION_REPEAT_MINUTES = 30
 DEFAULT_ESCALATION_MAX_COUNT = 3
 DEFAULT_RESTOCK_DAYS_BEFORE = 3
+
+# Which block types show up (generically, no detail) on calendar.*_shared_calendar.
+# The cycle owner picks these (see ANALYZA-A-ROADMAP.md section 2.7); in this
+# project's admin-controlled model (section 2.5) that choice is still made
+# via Options Flow/update_settings like every other setting.
+SHARED_CALENDAR_PERIOD = "period"
+SHARED_CALENDAR_FERTILE = "fertile"
+SHARED_CALENDAR_PAUSE = "pause"
+SHARED_CALENDAR_CATEGORIES = [SHARED_CALENDAR_PERIOD, SHARED_CALENDAR_FERTILE, SHARED_CALENDAR_PAUSE]
+DEFAULT_SHARED_CALENDAR_CATEGORIES = [SHARED_CALENDAR_PERIOD]
 
 # Goals - what the cycle owner is currently using the tracking for.
 GOAL_TRACK = "track"

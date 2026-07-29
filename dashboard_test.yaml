@@ -1,4 +1,4 @@
-# Perioder v0.4.0 - test dashboard (single VIEW, not a whole-dashboard file)
+# Perioder v0.5.0 - test dashboard (single VIEW, not a whole-dashboard file)
 #
 # Setup:
 #   1. Integration must be named exactly "Test" during setup.
@@ -24,15 +24,17 @@ path: perioder-test
 cards:
   - type: markdown
     content: >-
-      **Perioder v0.4.0 - test dashboard.** Klikni na "Zapsat začátek
+      **Perioder v0.5.0 - test dashboard.** Klikni na "Zapsat začátek
       periody" a vyber datum - i zpětně, pokud se to dozvíš až druhý den.
       "PMS přebití" testuje PMS okno bez čekání na skutečné datum. Antikoncepci
       nejdřív jednou nastartuj přes `perioder.start_new_pack` (Developer
-      Tools > Actions), pak už jen mačkej "Potvrdit prášek". Kalendář dole
-      ukazuje predikce period/plodných dní/pauz balení a zpětně i to, kdy
-      byl prášek skutečně potvrzený (a o kolik pozdě). Denní připomínka a
-      eskalace fungují jen pokud máš v Configure vyplněné "Your own notify
-      device" - kontrola běží každých 15 minut, ne přesně na čas.
+      Tools > Actions), pak už jen mačkej "Potvrdit prášek". Kalendář "Kalendář
+      cyklu" ukazuje predikce period/plodných dní/pauz balení a zpětně i to,
+      kdy byl prášek skutečně potvrzený (a o kolik pozdě); "Sdílený kalendář"
+      ukazuje jen generické "Citlivé období" bloky bez detailu (výchozí
+      nastavení: jen perioda). Denní připomínka a eskalace fungují jen pokud
+      máš v Configure vyplněné "Your own notify device" - kontrola běží
+      každých 15 minut, ne přesně na čas.
 
   - type: glance
     title: Stav cyklu
@@ -84,7 +86,40 @@ cards:
       - entity: switch.test_pause_notifications
         name: Pozastavit notifikace
 
+  - type: entities
+    title: Symptomy
+    entities:
+      - entity: sensor.test_last_symptom
+        name: Poslední symptom
+        secondary_info: last-changed
+      - entity: button.test_log_symptom_cramps
+        name: "Zapsat: křeče"
+      - entity: button.test_log_symptom_headache
+        name: "Zapsat: bolest hlavy"
+      - entity: button.test_log_symptom_low_energy
+        name: "Zapsat: nízká energie"
+      - entity: button.test_log_symptom_mood_change
+        name: "Zapsat: změna nálady"
+
+  - type: markdown
+    title: Podporovatelé
+    content: >-
+      {% set s = state_attr('sensor.test_supporters', 'supporters') or [] %}
+      {% if s | length == 0 %}
+      Zatím žádní podporovatelé - přidej je v Nastavení > Zařízení a služby >
+      Perioder > Konfigurovat.
+      {% else %}
+      {% for supporter in s %}
+      - **{{ supporter.device_id }}** ({{ supporter.detail_level }}): {{ supporter.categories }}
+      {% endfor %}
+      {% endif %}
+
   - type: calendar
-    title: Kalendář cyklu
+    title: Kalendář cyklu (detailní)
     entities:
       - calendar.test_cycle_calendar
+
+  - type: calendar
+    title: Sdílený kalendář (bez detailu)
+    entities:
+      - calendar.test_shared_calendar

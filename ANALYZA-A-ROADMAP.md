@@ -177,10 +177,12 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - [ ] Actionable notifikace (tlačítko "Vzato" přímo v push notifikaci, ne jen na dashboardu) — vyžaduje naslouchání HA události `mobile_app_notification_action`, zatím neimplementováno
 - [ ] Ověření proti reálné běžící Home Assistant instanci a reálnému mobile_app zařízení — zatím ověřeno jen logikou (standalone simulace rozhodovacího stromu), ne živým doručením notifikace
 
-### M5 — Symptomy, sdílený kalendář, dashboard
-- [ ] `log_symptom` + historie/trendy, export
-- [ ] `calendar.perioder_shared` s generickými bloky
-- [ ] Dashboard karty (cyklus, antikoncepce, PMS, podporovatelé, rychlé akce)
+### M5 — Symptomy, sdílený kalendář, dashboard ✅ (v0.5.0)
+- [x] `log_symptom` (služba + tlačítka per symptom) + `sensor.last_symptom`; export přes `perioder.export_symptom_log` (CSV do `www/`)
+- [x] `calendar.*_shared_calendar` s generickými bloky, kategorie voleny přes `shared_calendar_categories`
+- [x] Dashboard karty (cyklus, antikoncepce, PMS, podporovatelé přes `sensor.supporters`, rychlé akce včetně symptomů)
+- [ ] Grafy historie/trendů (history/statistics graph card) — `sensor.last_symptom` a `sensor.contraception_status` už mají potřebná data, ale žádná konkrétní graf-karta zatím není součástí `dashboard_test.yaml`
+- [ ] Učení PMS okna ze symptomové historie (zmíněno jako budoucí možnost v 2.4, ne součást M5)
 
 ### M6 — Blueprinty a komfortní automatizace
 - [ ] Blueprint: osvětlení/nerušit scéna v periodě/PMS okně

@@ -18,7 +18,8 @@
           "escalation_grace_minutes": "Doba, po které se dávka počítá jako vynechaná (minuty)",
           "escalation_repeat_minutes": "Interval mezi eskalačními připomínkami (minuty)",
           "escalation_max_count": "Maximální počet eskalačních připomínek",
-          "restock_days_before": "Upozornit podporovatele tolik dní před koncem balení"
+          "restock_days_before": "Upozornit podporovatele tolik dní před koncem balení",
+          "shared_calendar_categories": "Jaké typy bloků promítnout (obecně) do sdíleného kalendáře"
         }
       }
     },
@@ -49,7 +50,8 @@
           "escalation_grace_minutes": "Doba, po které se dávka počítá jako vynechaná (minuty)",
           "escalation_repeat_minutes": "Interval mezi eskalačními připomínkami (minuty)",
           "escalation_max_count": "Maximální počet eskalačních připomínek",
-          "restock_days_before": "Upozornit podporovatele tolik dní před koncem balení"
+          "restock_days_before": "Upozornit podporovatele tolik dní před koncem balení",
+          "shared_calendar_categories": "Jaké typy bloků promítnout (obecně) do sdíleného kalendáře"
         }
       },
       "supporters": {
@@ -110,6 +112,13 @@
         "general": "Obecná (bez detailů)",
         "detailed": "Detailní"
       }
+    },
+    "shared_calendar_category": {
+      "options": {
+        "period": "Perioda",
+        "fertile": "Plodné okno",
+        "pause": "Pauza balení"
+      }
     }
   },
   "entity": {
@@ -149,6 +158,18 @@
       },
       "pack_days_remaining": {
         "name": "Zbývající dny balení"
+      },
+      "last_symptom": {
+        "name": "Poslední symptom",
+        "state": {
+          "cramps": "Křeče",
+          "headache": "Bolest hlavy",
+          "low_energy": "Nízká energie",
+          "mood_change": "Změna nálady"
+        }
+      },
+      "supporters": {
+        "name": "Podporovatelé"
       }
     },
     "binary_sensor": {
@@ -183,11 +204,26 @@
     "button": {
       "confirm_pill_taken": {
         "name": "Potvrdit prášek"
+      },
+      "log_symptom_cramps": {
+        "name": "Zapsat symptom: křeče"
+      },
+      "log_symptom_headache": {
+        "name": "Zapsat symptom: bolest hlavy"
+      },
+      "log_symptom_low_energy": {
+        "name": "Zapsat symptom: nízká energie"
+      },
+      "log_symptom_mood_change": {
+        "name": "Zapsat symptom: změna nálady"
       }
     },
     "calendar": {
       "cycle_calendar": {
         "name": "Kalendář cyklu"
+      },
+      "shared_calendar": {
+        "name": "Sdílený kalendář"
       }
     },
     "switch": {

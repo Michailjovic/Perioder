@@ -18,7 +18,8 @@
           "escalation_grace_minutes": "Grace period before a dose counts as missed (minutes)",
           "escalation_repeat_minutes": "Time between escalation reminders (minutes)",
           "escalation_max_count": "Maximum number of escalation reminders",
-          "restock_days_before": "Notify supporters this many days before the pack runs out"
+          "restock_days_before": "Notify supporters this many days before the pack runs out",
+          "shared_calendar_categories": "Which block types to reflect (generically) on the shared calendar"
         }
       }
     },
@@ -49,7 +50,8 @@
           "escalation_grace_minutes": "Grace period before a dose counts as missed (minutes)",
           "escalation_repeat_minutes": "Time between escalation reminders (minutes)",
           "escalation_max_count": "Maximum number of escalation reminders",
-          "restock_days_before": "Notify supporters this many days before the pack runs out"
+          "restock_days_before": "Notify supporters this many days before the pack runs out",
+          "shared_calendar_categories": "Which block types to reflect (generically) on the shared calendar"
         }
       },
       "supporters": {
@@ -110,6 +112,13 @@
         "general": "General (no specifics)",
         "detailed": "Detailed"
       }
+    },
+    "shared_calendar_category": {
+      "options": {
+        "period": "Period",
+        "fertile": "Fertile window",
+        "pause": "Pack pause"
+      }
     }
   },
   "entity": {
@@ -149,6 +158,18 @@
       },
       "pack_days_remaining": {
         "name": "Pack days remaining"
+      },
+      "last_symptom": {
+        "name": "Last symptom",
+        "state": {
+          "cramps": "Cramps",
+          "headache": "Headache",
+          "low_energy": "Low energy",
+          "mood_change": "Mood change"
+        }
+      },
+      "supporters": {
+        "name": "Supporters"
       }
     },
     "binary_sensor": {
@@ -183,11 +204,26 @@
     "button": {
       "confirm_pill_taken": {
         "name": "Confirm pill taken"
+      },
+      "log_symptom_cramps": {
+        "name": "Log symptom: cramps"
+      },
+      "log_symptom_headache": {
+        "name": "Log symptom: headache"
+      },
+      "log_symptom_low_energy": {
+        "name": "Log symptom: low energy"
+      },
+      "log_symptom_mood_change": {
+        "name": "Log symptom: mood change"
       }
     },
     "calendar": {
       "cycle_calendar": {
         "name": "Cycle calendar"
+      },
+      "shared_calendar": {
+        "name": "Shared calendar"
       }
     },
     "switch": {

@@ -42,6 +42,7 @@ from .const import (
     CONF_REGIMEN_TYPE,
     CONF_REMINDER_TIME,
     CONF_RESTOCK_DAYS_BEFORE,
+    CONF_SHARED_CALENDAR_CATEGORIES,
     DEFAULT_CYCLE_LENGTH,
     DEFAULT_ESCALATION_GRACE_MINUTES,
     DEFAULT_ESCALATION_MAX_COUNT,
@@ -52,12 +53,14 @@ from .const import (
     DEFAULT_REGIMEN_TYPE,
     DEFAULT_REMINDER_TIME,
     DEFAULT_RESTOCK_DAYS_BEFORE,
+    DEFAULT_SHARED_CALENDAR_CATEGORIES,
     DETAIL_GENERAL,
     DETAIL_LEVELS,
     DOMAIN,
     GOALS,
     REGIMEN_PACK_DEFAULTS,
     REGIMEN_TYPES,
+    SHARED_CALENDAR_CATEGORIES,
     SUPPORTER_CATEGORIES,
 )
 
@@ -115,6 +118,16 @@ def _settings_schema(defaults: dict[str, Any]) -> vol.Schema:
             vol.Optional(
                 CONF_RESTOCK_DAYS_BEFORE, default=defaults[CONF_RESTOCK_DAYS_BEFORE]
             ): vol.All(vol.Coerce(int), vol.Range(min=0, max=14)),
+            vol.Optional(
+                CONF_SHARED_CALENDAR_CATEGORIES, default=defaults[CONF_SHARED_CALENDAR_CATEGORIES]
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=SHARED_CALENDAR_CATEGORIES,
+                    translation_key="shared_calendar_category",
+                    multiple=True,
+                    mode=selector.SelectSelectorMode.LIST,
+                )
+            ),
         }
     )
 
@@ -176,6 +189,7 @@ class PerioderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_ESCALATION_REPEAT_MINUTES: DEFAULT_ESCALATION_REPEAT_MINUTES,
             CONF_ESCALATION_MAX_COUNT: DEFAULT_ESCALATION_MAX_COUNT,
             CONF_RESTOCK_DAYS_BEFORE: DEFAULT_RESTOCK_DAYS_BEFORE,
+            CONF_SHARED_CALENDAR_CATEGORIES: DEFAULT_SHARED_CALENDAR_CATEGORIES,
         }
 
         schema = vol.Schema({vol.Required(CONF_NAME): str}).extend(_settings_schema(defaults).schema)
@@ -212,6 +226,7 @@ class PerioderOptionsFlow(OptionsFlowWithReload):
             self._options.setdefault(CONF_ESCALATION_REPEAT_MINUTES, DEFAULT_ESCALATION_REPEAT_MINUTES)
             self._options.setdefault(CONF_ESCALATION_MAX_COUNT, DEFAULT_ESCALATION_MAX_COUNT)
             self._options.setdefault(CONF_RESTOCK_DAYS_BEFORE, DEFAULT_RESTOCK_DAYS_BEFORE)
+            self._options.setdefault(CONF_SHARED_CALENDAR_CATEGORIES, DEFAULT_SHARED_CALENDAR_CATEGORIES)
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         self._ensure_working_copy()

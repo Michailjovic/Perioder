@@ -201,6 +201,58 @@ update_settings:
       name: Daily contraception reminder time
       selector:
         time:
+    owner_notify_device:
+      name: Your own notify device
+      description: For the daily contraception reminder/escalation.
+      selector:
+        device:
+          integration: mobile_app
+    escalation_grace_minutes:
+      name: Grace period before "missed"
+      description: Minutes after reminder_time before an unconfirmed dose counts as missed.
+      example: 60
+      selector:
+        number:
+          min: 5
+          max: 360
+          unit_of_measurement: min
+    escalation_repeat_minutes:
+      name: Escalation repeat interval
+      example: 30
+      selector:
+        number:
+          min: 15
+          max: 360
+          unit_of_measurement: min
+    escalation_max_count:
+      name: Maximum escalation reminders
+      example: 3
+      selector:
+        number:
+          min: 0
+          max: 20
+    restock_days_before:
+      name: Restock notice lead time
+      description: Notify supporters this many days before the pack runs out.
+      example: 3
+      selector:
+        number:
+          min: 0
+          max: 14
+          unit_of_measurement: d
+    shared_calendar_categories:
+      name: Shared calendar categories
+      description: Which block types show up (generically) on the shared calendar.
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: Period
+              value: "period"
+            - label: Fertile window
+              value: "fertile"
+            - label: Pack pause
+              value: "pause"
 
 pause_notifications:
   name: Pause notifications
@@ -225,3 +277,54 @@ pause_notifications:
       example: true
       selector:
         boolean:
+
+log_symptom:
+  name: Log symptom
+  description: >-
+    Log a symptom with a timestamp for one cycle owner. Same effect as the
+    matching "Log symptom: ..." button entity.
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    symptom:
+      name: Symptom
+      required: true
+      example: "cramps"
+      selector:
+        select:
+          options:
+            - label: Cramps
+              value: "cramps"
+            - label: Headache
+              value: "headache"
+            - label: Low energy
+              value: "low_energy"
+            - label: Mood change
+              value: "mood_change"
+
+export_symptom_log:
+  name: Export symptom log
+  description: >-
+    Write the full symptom history to a CSV file under Home Assistant's
+    www/ folder (so it's downloadable at /local/<filename>) - for a
+    gynecologist consultation, for example. A persistent notification with
+    the resulting path is created when it's done.
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    filename:
+      name: Filename
+      description: Defaults to "perioder_<name>_symptoms.csv" if omitted.
+      example: "symptoms.csv"
+      selector:
+        text:

@@ -5,6 +5,53 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.5.0] - 2026-07-29
+
+M5 - symptoms, shared calendar, dashboard. Closes out every M1-M5 milestone
+on the roadmap; M6 (blueprints) and M7 (tests/docs/polish) remain before v1.0.0.
+
+### Added
+
+- `perioder.log_symptom` service (finally registered - `storage.py` has had
+  `async_log_symptom`/`symptoms`/`symptom_log` since v0.1.0, but nothing
+  ever called the service in `__init__.py` until now) and one
+  `button.log_symptom_<symptom>` per entry in `const.SYMPTOMS` (cramps,
+  headache, low_energy, mood_change) for one-tap logging from the dashboard
+  - the "rychlé akce ... log symptomu" item from
+  ANALYZA-A-ROADMAP.md section 2.9.
+- `sensor.last_symptom`: which symptom was logged most recently and when
+  (`logged_at`, `log_entry_count` attributes) - enough for a history graph
+  card or just a glance at the dashboard.
+- `perioder.export_symptom_log` service: writes the full symptom history to
+  a CSV file under Home Assistant's `www/` folder (downloadable at
+  `/local/<filename>`) and creates a persistent notification with the
+  resulting path - for a gynecologist consultation, per section 2.4.
+- `calendar.shared_calendar`: a second calendar entity per cycle owner with
+  generic "Citlivé období" blocks and no detail (no period/fertile/pause
+  distinction, no pill data at all) - for exporting into a shared family
+  calendar (ANALYZA-A-ROADMAP.md section 2.7). New `shared_calendar_categories`
+  setting controls which block *types* (period/fertile/pause) show up at
+  all; defaults to just `period`. `calendar.py`'s block-generation functions
+  were refactored to module-level pure functions so both calendars (and the
+  detailed one from v0.3.0) share the exact same date math.
+- `sensor.supporters`: supporter count, with each supporter's device/categories/
+  detail_level as an attribute - since supporters are config entry options,
+  not entities themselves, this is what lets a dashboard markdown card show
+  a "supporters overview" (section 2.9) via `state_attr(...)`.
+- `dashboard_test.yaml`: symptom quick-action buttons, a supporters overview
+  markdown card, and the shared calendar card.
+
+### Fixed
+
+- `perioder.update_settings` (added in v0.3.0) and its Options Flow
+  equivalent (extended in v0.4.0) had drifted apart: the four M4 notification
+  settings (`owner_notify_device`, `escalation_grace_minutes`,
+  `escalation_repeat_minutes`, `escalation_max_count`, `restock_days_before`)
+  were only ever addable via Options Flow, not via the service - an oversight
+  from v0.4.0, caught while adding `shared_calendar_categories` to both
+  places for this release. `update_settings` now covers every setting
+  Options Flow does.
+
 ## [0.4.0] - 2026-07-29
 
 M4 - notification engine. This is the original motivating problem for the

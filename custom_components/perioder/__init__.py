@@ -29,8 +29,10 @@ reloads the entry automatically - there is no manual update listener here.
 """
 from __future__ import annotations
 
+import csv
 import logging
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 
 import voluptuous as vol
 
@@ -39,6 +41,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.util import slugify
 
 from . import cycle_math as cm
 from . import notifications
@@ -51,6 +54,7 @@ from .const import (
     CONF_ESCALATION_MAX_COUNT,
     CONF_ESCALATION_REPEAT_MINUTES,
     CONF_GOAL,
+    CONF_OWNER_NOTIFY_DEVICE,
     CONF_PACK_SIZE,
     CONF_PAUSE_DAYS,
     CONF_PERIOD_DURATION,
@@ -58,10 +62,13 @@ from .const import (
     CONF_REGIMEN_TYPE,
     CONF_REMINDER_TIME,
     CONF_RESTOCK_DAYS_BEFORE,
+    CONF_SHARED_CALENDAR_CATEGORIES,
     DOMAIN,
     FERTILITY_FERTILE,
     GOALS,
     REGIMEN_TYPES,
+    SHARED_CALENDAR_CATEGORIES,
+    SYMPTOMS,
 )
 from .settings import get_settings
 from .storage import PerioderData
@@ -85,6 +92,8 @@ SERVICE_START_NEW_PACK = "start_new_pack"
 SERVICE_SET_CONTRACEPTION_ACTIVE = "set_contraception_active"
 SERVICE_UPDATE_SETTINGS = "update_settings"
 SERVICE_PAUSE_NOTIFICATIONS = "pause_notifications"
+SERVICE_LOG_SYMPTOM = "log_symptom"
+SERVICE_EXPORT_SYMPTOM_LOG = "export_symptom_log"
 
 _PMS_OVERRIDE_VALUES = {"auto": None, "active": True, "inactive": False}
 _ALL_SERVICES = (
@@ -95,6 +104,8 @@ _ALL_SERVICES = (
     SERVICE_SET_CONTRACEPTION_ACTIVE,
     SERVICE_UPDATE_SETTINGS,
     SERVICE_PAUSE_NOTIFICATIONS,
+    SERVICE_LOG_SYMPTOM,
+    SERVICE_EXPORT_SYMPTOM_LOG,
 )
 
 _ENTRY_TARGET_SCHEMA = {
@@ -376,6 +387,18 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 vol.Optional(CONF_PACK_SIZE): vol.All(vol.Coerce(int), vol.Range(min=1, max=90)),
                 vol.Optional(CONF_PAUSE_DAYS): vol.All(vol.Coerce(int), vol.Range(min=0, max=30)),
                 vol.Optional(CONF_REMINDER_TIME): cv.time,
+                vol.Optional(CONF_OWNER_NOTIFY_DEVICE): selector.DeviceSelector(
+                    selector.DeviceSelectorConfig(integration="mobile_app")
+                ),
+                vol.Optional(CONF_ESCALATION_GRACE_MINUTES): vol.All(
+                    vol.Coerce(int), vol.Range(min=5, max=360)
+                ),
+                vol.Optional(CONF_ESCALATION_REPEAT_MINUTES): vol.All(
+                    vol.Coerce(int), vol.Range(min=15, max=360)
+                ),
+                vol.Optional(CONF_ESCALATION_MAX_COUNT): vol.All(vol.Coerce(int), vol.Range(min=0, max=20)),
+                vol.Optional(CONF_RESTOCK_DAYS_BEFORE): vol.All(vol.Coerce(int), vol.Range(min=0, max=14)),
+                vol.Optional(CONF_SHARED_CALENDAR_CATEGORIES): [vol.In(SHARED_CALENDAR_CATEGORIES)],
             }
         ),
     )
@@ -389,4 +412,49 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_PAUSE_NOTIFICATIONS,
         handle_pause_notifications,
         schema=vol.Schema({**_ENTRY_TARGET_SCHEMA, vol.Required("paused"): cv.boolean}),
+    )
+
+    async def handle_log_symptom(call: ServiceCall) -> None:
+        data = _get_entry_data(hass, call.data["config_entry_id"])
+        await data.async_log_symptom(call.data["symptom"])
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_LOG_SYMPTOM,
+        handle_log_symptom,
+        schema=vol.Schema({**_ENTRY_TARGET_SCHEMA, vol.Required("symptom"): vol.In(SYMPTOMS)}),
+    )
+
+    async def handle_export_symptom_log(call: ServiceCall) -> None:
+        entry = _get_entry(hass, call.data["config_entry_id"])
+        data = _get_entry_data(hass, call.data["config_entry_id"])
+        rows = data.symptom_log
+        filename = call.data.get("filename") or f"perioder_{slugify(entry.title)}_symptoms.csv"
+        if not filename.endswith(".csv"):
+            filename += ".csv"
+
+        def _write_csv() -> None:
+            www_dir = Path(hass.config.path("www"))
+            www_dir.mkdir(parents=True, exist_ok=True)
+            with (www_dir / filename).open("w", newline="", encoding="utf-8") as csv_file:
+                writer = csv.DictWriter(csv_file, fieldnames=["symptom", "logged_at"])
+                writer.writeheader()
+                writer.writerows(rows)
+
+        await hass.async_add_executor_job(_write_csv)
+        await hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "Perioder - export symptomů",
+                "message": f"Export hotový: `/local/{filename}` ({len(rows)} záznamů).",
+                "notification_id": f"perioder_export_{entry.entry_id}",
+            },
+        )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_EXPORT_SYMPTOM_LOG,
+        handle_export_symptom_log,
+        schema=vol.Schema({**_ENTRY_TARGET_SCHEMA, vol.Optional("filename"): cv.string}),
     )

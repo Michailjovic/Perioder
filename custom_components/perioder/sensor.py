@@ -20,8 +20,8 @@ from homeassistant.util import slugify
 
 from . import cycle_math as cm
 from . import pill_math as pm
-from .const import DOMAIN
-from .settings import get_settings
+from .const import DOMAIN, SYMPTOMS
+from .settings import get_settings, get_supporters
 from .storage import PerioderData
 
 
@@ -38,6 +38,8 @@ async def async_setup_entry(
             NextPeriodSensor(entry, data),
             ContraceptionStatusSensor(entry, data),
             PackDaysRemainingSensor(entry, data),
+            LastSymptomSensor(entry, data),
+            SupportersSensor(entry, data),
         ]
     )
 
@@ -209,3 +211,60 @@ class PackDaysRemainingSensor(_PerioderSensorBase):
         pack_start = date.fromisoformat(contraception["pack_start_date"])
         day = pm.day_in_pack(pack_start, date.today(), settings["pack_size"], settings["pause_days"])
         return pm.days_until_pack_ends(day, settings["pack_size"])
+
+
+class LastSymptomSensor(_PerioderSensorBase):
+    """Which symptom (see const.SYMPTOMS) was logged most recently, and when."""
+
+    _attr_device_class = "enum"
+    _attr_options = list(SYMPTOMS)
+
+    def __init__(self, entry: ConfigEntry, data: PerioderData) -> None:
+        super().__init__(entry, data, "last_symptom")
+
+    @property
+    def native_value(self) -> str | None:
+        symptoms = self._data.symptoms
+        if not symptoms:
+            return None
+        return max(symptoms, key=lambda symptom: symptoms[symptom])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        symptoms = self._data.symptoms
+        if not symptoms:
+            return {}
+        last_symptom = max(symptoms, key=lambda symptom: symptoms[symptom])
+        return {"logged_at": symptoms[last_symptom], "log_entry_count": len(self._data.symptom_log)}
+
+
+class SupportersSensor(_PerioderSensorBase):
+    """How many supporters are configured, with their subscriptions as attributes.
+
+    Exists so a dashboard markdown card can show a "supporters overview"
+    (ANALYZA-A-ROADMAP.md section 2.9) via `state_attr(...)`, since supporters
+    themselves aren't Home Assistant entities - they're config entry options
+    (see settings.py).
+    """
+
+    _attr_native_unit_of_measurement = "supporters"
+
+    def __init__(self, entry: ConfigEntry, data: PerioderData) -> None:
+        super().__init__(entry, data, "supporters")
+
+    @property
+    def native_value(self) -> int:
+        return len(get_supporters(self._entry))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, list[dict[str, str]]]:
+        return {
+            "supporters": [
+                {
+                    "device_id": supporter["device_id"],
+                    "categories": ", ".join(supporter.get("categories", [])) or "none",
+                    "detail_level": supporter.get("detail_level", "general"),
+                }
+                for supporter in get_supporters(self._entry)
+            ]
+        }

@@ -214,6 +214,11 @@ class PerioderData:
     def symptoms(self) -> dict[str, str]:
         return self.data.get("symptoms", {}) if self.data else {}
 
+    @property
+    def symptom_log(self) -> list[dict[str, str]]:
+        """Full symptom history: [{"symptom", "logged_at"}, ...], oldest first."""
+        return self.data.get("symptom_log", []) if self.data else []
+
     async def async_log_symptom(self, symptom: str) -> None:
         if self.data:
             now = datetime.now().isoformat()
