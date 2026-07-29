@@ -5,6 +5,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.2] - 2026-07-29
+
+Reverts the v0.9.1 fix - user rejected `listWeek` as unusable, wants the
+month grid kept.
+
+### Changed
+
+- `dashboard_test.yaml` calendar cards back to the default month grid
+  (removed `initial_view: listWeek`), now paired with a `card_mod` block
+  (`ha-full-calendar { min-height: ...px; }`) to force taller rows instead
+  of switching views. Requires the **card-mod** HACS frontend resource to
+  have any effect - if it's not installed, the `card_mod` key is just
+  silently ignored (no error, but no fix either). Not verified live - the
+  exact internal element/class HA's calendar card exposes can differ by
+  frontend version; if `min-height` has no visible effect, inspect the
+  card in the browser's DevTools to find the right selector for that HA
+  version.
+
 ## [0.9.1] - 2026-07-29
 
 Dashboard-only fix, found live: no integration code changed.
