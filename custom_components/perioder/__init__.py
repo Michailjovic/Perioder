@@ -4,15 +4,22 @@ v0.1.x covered the cycle/fertility/PMS foundation: read-only cycle sensors,
 a settable `date` entity to log/backdate the period start, and a `select`
 entity for the PMS override. v0.2.0 (M2) added the contraception core:
 pack-day status, a "Confirm pill taken" button, and the matching services.
-v0.3.0 (M3) closes out the cycle/fertility milestone: a `calendar` entity
+v0.3.0 (M3) closed out the cycle/fertility milestone: a `calendar` entity
 predicting periods/fertile windows/pack-pauses and showing logged pill
 confirmations (with delay vs. the reminder time), plus `update_settings` for
 editing settings outside of Options Flow (automations/voice/NFC).
 
-The daily reminder + escalation notification (also originally part of M2 on
-the roadmap) is deferred to M4, where it's built together with the supporter
-notification engine - both need the same underlying "send + track an
-actionable notification" plumbing, so building it twice didn't make sense.
+v0.4.0 (M4) adds the notification engine: the daily contraception
+reminder + escalation to the cycle owner's own device (`owner_notify_device`),
+a missed-dose notification to supporters subscribed to that category (with a
+fertility-window heads-up folded in), a one-shot "pack running low" notice,
+and `pause_notifications` (service + `switch.pause_notifications`) to mute
+all of it without losing data. Scope note: only `missed_dose` and
+`contraception_restock` are wired up to actually fire in this release -
+`pms`/`period`/`fertility` as *transition-triggered* supporter notifications
+(vs. today's fertility-window mention folded into the missed-dose message)
+are intentionally left for a follow-up, see CHANGELOG.md and
+ANALYZA-A-ROADMAP.md.
 
 Settings and supporters live in the config entry (data/options) and are
 handled by config_flow.py + settings.py; this module only owns the runtime
@@ -23,7 +30,7 @@ reloads the entry automatically - there is no manual update listener here.
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 import voluptuous as vol
 
@@ -33,8 +40,16 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.event import async_track_time_interval
 
+from . import cycle_math as cm
+from . import notifications
+from . import pill_math as pm
 from .const import (
+    CATEGORY_CONTRACEPTION_RESTOCK,
+    CATEGORY_MISSED_DOSE,
     CONF_CYCLE_LENGTH,
+    CONF_ESCALATION_GRACE_MINUTES,
+    CONF_ESCALATION_MAX_COUNT,
+    CONF_ESCALATION_REPEAT_MINUTES,
     CONF_GOAL,
     CONF_PACK_SIZE,
     CONF_PAUSE_DAYS,
@@ -42,7 +57,9 @@ from .const import (
     CONF_PMS_WINDOW_DAYS,
     CONF_REGIMEN_TYPE,
     CONF_REMINDER_TIME,
+    CONF_RESTOCK_DAYS_BEFORE,
     DOMAIN,
+    FERTILITY_FERTILE,
     GOALS,
     REGIMEN_TYPES,
 )
@@ -58,6 +75,7 @@ PLATFORMS: list[Platform] = [
     Platform.SELECT,
     Platform.BUTTON,
     Platform.CALENDAR,
+    Platform.SWITCH,
 ]
 
 SERVICE_LOG_PERIOD_START = "log_period_start"
@@ -66,6 +84,7 @@ SERVICE_LOG_PILL_TAKEN = "log_pill_taken"
 SERVICE_START_NEW_PACK = "start_new_pack"
 SERVICE_SET_CONTRACEPTION_ACTIVE = "set_contraception_active"
 SERVICE_UPDATE_SETTINGS = "update_settings"
+SERVICE_PAUSE_NOTIFICATIONS = "pause_notifications"
 
 _PMS_OVERRIDE_VALUES = {"auto": None, "active": True, "inactive": False}
 _ALL_SERVICES = (
@@ -75,6 +94,7 @@ _ALL_SERVICES = (
     SERVICE_START_NEW_PACK,
     SERVICE_SET_CONTRACEPTION_ACTIVE,
     SERVICE_UPDATE_SETTINGS,
+    SERVICE_PAUSE_NOTIFICATIONS,
 )
 
 _ENTRY_TARGET_SCHEMA = {
@@ -110,15 +130,129 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await data.async_load()
     hass.data[DOMAIN][entry.entry_id] = data
 
-    entry.async_on_unload(
-        async_track_time_interval(hass, lambda now, d=data: d.request_refresh(), REFRESH_INTERVAL)
-    )
+    async def _async_tick(now, hass=hass, entry=entry, data=data) -> None:
+        data.request_refresh()
+        await _async_check_contraception_notifications(hass, entry, data)
+
+    entry.async_on_unload(async_track_time_interval(hass, _async_tick, REFRESH_INTERVAL))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _async_register_services(hass)
 
     return True
+
+
+async def _async_check_contraception_notifications(
+    hass: HomeAssistant, entry: ConfigEntry, data: PerioderData
+) -> None:
+    """Daily reminder + escalation to the owner, missed-dose alert to supporters, pack restock notice.
+
+    Runs on every REFRESH_INTERVAL tick (15 min) rather than at exact times -
+    fine for a daily reminder, but it does mean `escalation_repeat_minutes`
+    shorter than ~15 min has no extra effect (capped at tick granularity).
+    """
+    contraception = data.contraception
+    if not contraception["active"] or not contraception["pack_start_date"]:
+        return
+
+    notif_state = data.notifications
+    settings = get_settings(entry)
+    today = date.today()
+    now = datetime.now()
+    reminder_time = time.fromisoformat(settings[CONF_REMINDER_TIME])
+    pack_start = date.fromisoformat(contraception["pack_start_date"])
+
+    # -- pack running low (once per pack) --------------------------------
+    day = pm.day_in_pack(pack_start, today, settings[CONF_PACK_SIZE], settings[CONF_PAUSE_DAYS])
+    days_left = pm.days_until_pack_ends(day, settings[CONF_PACK_SIZE])
+    if (
+        not notif_state["paused"]
+        and pm.is_pill_day(day, settings[CONF_PACK_SIZE])
+        and days_left <= settings[CONF_RESTOCK_DAYS_BEFORE]
+        and notif_state["restock_notified_for"] != contraception["pack_start_date"]
+    ):
+        await notifications.async_notify_supporters(
+            hass,
+            entry,
+            CATEGORY_CONTRACEPTION_RESTOCK,
+            title="Perioder",
+            general_message="Antikoncepční balení brzy dojde.",
+            detailed_message=f"Antikoncepční balení brzy dojde - zbývá {days_left} dní aktivních tablet.",
+        )
+        await data.async_mark_restock_notified(contraception["pack_start_date"])
+
+    # -- daily reminder / escalation / missed-dose alert -------------------
+    if not pm.is_pill_day(day, settings[CONF_PACK_SIZE]):
+        return  # pause day, nothing to remind about today
+    logged_today = contraception["pill_log"].get(today.isoformat())
+    if logged_today is not None and logged_today["status"] == "taken":
+        return  # confirmed taken - nothing left to do today
+    # A "missed" entry does NOT stop here - escalation keeps nagging the
+    # owner (up to escalation_max_count) even after the day's status has
+    # flipped to "missed"; only an actual "taken" confirmation ends it.
+    if now < datetime.combine(today, reminder_time):
+        return  # not reminder time yet
+    if notif_state["paused"]:
+        return
+
+    if notif_state["last_reminder_date"] != today.isoformat():
+        await notifications.async_notify_owner(
+            hass, entry, "💊 Čas na prášek", "Nezapomeň dnes vzít antikoncepci."
+        )
+        await data.async_mark_reminder_sent(today)
+        return
+
+    grace_end = datetime.combine(today, reminder_time) + timedelta(
+        minutes=settings[CONF_ESCALATION_GRACE_MINUTES]
+    )
+    if now < grace_end:
+        return  # still within the grace period, not "missed" yet
+
+    if notif_state["escalation_count"] == 0:
+        # first time crossing into "missed" today - this is the moment the
+        # sensor's status also flips to "missed" (same grace period), so
+        # persist it and tell everyone who's subscribed.
+        await data.async_log_pill_missed(today)
+
+        fertility_note = ""
+        last_start = data.last_period_start
+        if last_start is not None:
+            cycle_day = cm.cycle_day(last_start, today)
+            if cm.fertility(cycle_day, settings[CONF_CYCLE_LENGTH]) == FERTILITY_FERTILE:
+                fertility_note = " Dnes je navíc plodné okno - zvaž zálohovou ochranu."
+
+        await notifications.async_notify_owner(
+            hass,
+            entry,
+            "⚠️ Antikoncepce nepotvrzena",
+            f"Dnešní dávka nebyla potvrzena.{fertility_note}",
+        )
+        await notifications.async_notify_supporters(
+            hass,
+            entry,
+            CATEGORY_MISSED_DOSE,
+            title="Perioder",
+            general_message="Vynechaná dávka antikoncepce.",
+            detailed_message=f"Dnešní dávka antikoncepce nebyla potvrzena.{fertility_note}",
+        )
+        await data.async_mark_escalation_sent(now)
+        return
+
+    if notif_state["escalation_count"] >= settings[CONF_ESCALATION_MAX_COUNT]:
+        return
+
+    last_escalation_at = notif_state["last_escalation_at"]
+    last_escalation_dt = datetime.fromisoformat(last_escalation_at) if last_escalation_at else grace_end
+    minutes_since = (now - last_escalation_dt).total_seconds() / 60
+    if minutes_since >= settings[CONF_ESCALATION_REPEAT_MINUTES]:
+        await notifications.async_notify_owner(
+            hass,
+            entry,
+            "⚠️ Stále nepotvrzeno",
+            "Připomínka: dnešní dávka antikoncepce pořád není potvrzená.",
+        )
+        await data.async_mark_escalation_sent(now)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -244,4 +378,15 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 vol.Optional(CONF_REMINDER_TIME): cv.time,
             }
         ),
+    )
+
+    async def handle_pause_notifications(call: ServiceCall) -> None:
+        data = _get_entry_data(hass, call.data["config_entry_id"])
+        await data.async_set_notifications_paused(call.data["paused"])
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PAUSE_NOTIFICATIONS,
+        handle_pause_notifications,
+        schema=vol.Schema({**_ENTRY_TARGET_SCHEMA, vol.Required("paused"): cv.boolean}),
     )

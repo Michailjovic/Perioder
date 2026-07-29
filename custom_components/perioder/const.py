@@ -17,12 +17,29 @@ CONF_PACK_SIZE = "pack_size"
 CONF_PAUSE_DAYS = "pause_days"
 CONF_REMINDER_TIME = "reminder_time"
 
+# Config / options keys - notifications (M4)
+CONF_OWNER_NOTIFY_DEVICE = "owner_notify_device"
+CONF_ESCALATION_GRACE_MINUTES = "escalation_grace_minutes"
+CONF_ESCALATION_REPEAT_MINUTES = "escalation_repeat_minutes"
+CONF_ESCALATION_MAX_COUNT = "escalation_max_count"
+CONF_RESTOCK_DAYS_BEFORE = "restock_days_before"
+
 DEFAULT_CYCLE_LENGTH = 28
 DEFAULT_PERIOD_DURATION = 5
 DEFAULT_GOAL = "track"
 DEFAULT_PMS_WINDOW_DAYS = 4
 DEFAULT_REGIMEN_TYPE = "21_7"
 DEFAULT_REMINDER_TIME = "21:00:00"
+
+# Grace period before "pending" becomes "missed" (also used by pill_status()
+# for the sensor, so the displayed status and the notification engine always
+# agree on what "missed" means). Repeat/max count control the escalation
+# nag to the owner after that point; none of this affects supporters, who
+# only ever get one missed_dose notification per day (see notifications.py).
+DEFAULT_ESCALATION_GRACE_MINUTES = 60
+DEFAULT_ESCALATION_REPEAT_MINUTES = 30
+DEFAULT_ESCALATION_MAX_COUNT = 3
+DEFAULT_RESTOCK_DAYS_BEFORE = 3
 
 # Goals - what the cycle owner is currently using the tracking for.
 GOAL_TRACK = "track"

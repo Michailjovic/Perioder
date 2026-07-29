@@ -29,20 +29,29 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_CYCLE_LENGTH,
+    CONF_ESCALATION_GRACE_MINUTES,
+    CONF_ESCALATION_MAX_COUNT,
+    CONF_ESCALATION_REPEAT_MINUTES,
     CONF_GOAL,
     CONF_NAME,
+    CONF_OWNER_NOTIFY_DEVICE,
     CONF_PACK_SIZE,
     CONF_PAUSE_DAYS,
     CONF_PERIOD_DURATION,
     CONF_PMS_WINDOW_DAYS,
     CONF_REGIMEN_TYPE,
     CONF_REMINDER_TIME,
+    CONF_RESTOCK_DAYS_BEFORE,
     DEFAULT_CYCLE_LENGTH,
+    DEFAULT_ESCALATION_GRACE_MINUTES,
+    DEFAULT_ESCALATION_MAX_COUNT,
+    DEFAULT_ESCALATION_REPEAT_MINUTES,
     DEFAULT_GOAL,
     DEFAULT_PERIOD_DURATION,
     DEFAULT_PMS_WINDOW_DAYS,
     DEFAULT_REGIMEN_TYPE,
     DEFAULT_REMINDER_TIME,
+    DEFAULT_RESTOCK_DAYS_BEFORE,
     DETAIL_GENERAL,
     DETAIL_LEVELS,
     DOMAIN,
@@ -89,6 +98,23 @@ def _settings_schema(defaults: dict[str, Any]) -> vol.Schema:
                 vol.Coerce(int), vol.Range(min=0, max=30)
             ),
             vol.Required(CONF_REMINDER_TIME, default=defaults[CONF_REMINDER_TIME]): selector.TimeSelector(),
+            vol.Optional(
+                CONF_OWNER_NOTIFY_DEVICE, default=defaults.get(CONF_OWNER_NOTIFY_DEVICE)
+            ): vol.Any(
+                None, selector.DeviceSelector(selector.DeviceSelectorConfig(integration="mobile_app"))
+            ),
+            vol.Optional(
+                CONF_ESCALATION_GRACE_MINUTES, default=defaults[CONF_ESCALATION_GRACE_MINUTES]
+            ): vol.All(vol.Coerce(int), vol.Range(min=5, max=360)),
+            vol.Optional(
+                CONF_ESCALATION_REPEAT_MINUTES, default=defaults[CONF_ESCALATION_REPEAT_MINUTES]
+            ): vol.All(vol.Coerce(int), vol.Range(min=15, max=360)),
+            vol.Optional(
+                CONF_ESCALATION_MAX_COUNT, default=defaults[CONF_ESCALATION_MAX_COUNT]
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=20)),
+            vol.Optional(
+                CONF_RESTOCK_DAYS_BEFORE, default=defaults[CONF_RESTOCK_DAYS_BEFORE]
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=14)),
         }
     )
 
@@ -145,6 +171,11 @@ class PerioderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_PACK_SIZE: pack_size,
             CONF_PAUSE_DAYS: pause_days,
             CONF_REMINDER_TIME: DEFAULT_REMINDER_TIME,
+            CONF_OWNER_NOTIFY_DEVICE: None,
+            CONF_ESCALATION_GRACE_MINUTES: DEFAULT_ESCALATION_GRACE_MINUTES,
+            CONF_ESCALATION_REPEAT_MINUTES: DEFAULT_ESCALATION_REPEAT_MINUTES,
+            CONF_ESCALATION_MAX_COUNT: DEFAULT_ESCALATION_MAX_COUNT,
+            CONF_RESTOCK_DAYS_BEFORE: DEFAULT_RESTOCK_DAYS_BEFORE,
         }
 
         schema = vol.Schema({vol.Required(CONF_NAME): str}).extend(_settings_schema(defaults).schema)
@@ -174,6 +205,13 @@ class PerioderOptionsFlow(OptionsFlowWithReload):
                 self.config_entry.data
             )
             self._options.setdefault("supporters", [])
+            # Entries created before v0.4.0 won't have these keys yet -
+            # backfill them so _settings_schema() doesn't KeyError.
+            self._options.setdefault(CONF_OWNER_NOTIFY_DEVICE, None)
+            self._options.setdefault(CONF_ESCALATION_GRACE_MINUTES, DEFAULT_ESCALATION_GRACE_MINUTES)
+            self._options.setdefault(CONF_ESCALATION_REPEAT_MINUTES, DEFAULT_ESCALATION_REPEAT_MINUTES)
+            self._options.setdefault(CONF_ESCALATION_MAX_COUNT, DEFAULT_ESCALATION_MAX_COUNT)
+            self._options.setdefault(CONF_RESTOCK_DAYS_BEFORE, DEFAULT_RESTOCK_DAYS_BEFORE)
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         self._ensure_working_copy()

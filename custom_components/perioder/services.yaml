@@ -201,3 +201,27 @@ update_settings:
       name: Daily contraception reminder time
       selector:
         time:
+
+pause_notifications:
+  name: Pause notifications
+  description: >-
+    Mute all Perioder notifications for one cycle owner - the owner's own
+    daily contraception reminder/escalation, and every supporter category
+    - without losing any data. Same effect as the "Pause notifications"
+    switch entity. Cycle/contraception tracking itself keeps working;
+    only the notifications stop going out.
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    paused:
+      name: Paused
+      description: true = notifications muted, false = notifications resume.
+      required: true
+      example: true
+      selector:
+        boolean:

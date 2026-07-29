@@ -13,7 +13,12 @@
           "regimen_type": "Contraception regimen",
           "pack_size": "Pack size in days (custom regimen only)",
           "pause_days": "Pause days (custom regimen only)",
-          "reminder_time": "Daily contraception reminder time"
+          "reminder_time": "Daily contraception reminder time",
+          "owner_notify_device": "Your own notify device (for the daily reminder)",
+          "escalation_grace_minutes": "Grace period before a dose counts as missed (minutes)",
+          "escalation_repeat_minutes": "Time between escalation reminders (minutes)",
+          "escalation_max_count": "Maximum number of escalation reminders",
+          "restock_days_before": "Notify supporters this many days before the pack runs out"
         }
       }
     },
@@ -39,7 +44,12 @@
           "regimen_type": "Contraception regimen",
           "pack_size": "Pack size in days (custom regimen only)",
           "pause_days": "Pause days (custom regimen only)",
-          "reminder_time": "Daily contraception reminder time"
+          "reminder_time": "Daily contraception reminder time",
+          "owner_notify_device": "Your own notify device (for the daily reminder)",
+          "escalation_grace_minutes": "Grace period before a dose counts as missed (minutes)",
+          "escalation_repeat_minutes": "Time between escalation reminders (minutes)",
+          "escalation_max_count": "Maximum number of escalation reminders",
+          "restock_days_before": "Notify supporters this many days before the pack runs out"
         }
       },
       "supporters": {
@@ -178,6 +188,11 @@
     "calendar": {
       "cycle_calendar": {
         "name": "Cycle calendar"
+      }
+    },
+    "switch": {
+      "pause_notifications": {
+        "name": "Pause notifications"
       }
     }
   }

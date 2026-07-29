@@ -5,6 +5,98 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.4.0] - 2026-07-29
+
+M4 - notification engine. This is the original motivating problem for the
+whole project: a real daily contraception reminder with escalation,
+replacing a dumb daily alarm, plus the supporter side of the notification
+model designed all the way back in section 2.5 of `ANALYZA-A-ROADMAP.md`.
+
+### Added
+
+- `notifications.py`: dispatch helpers that resolve a `device_id` (picked
+  via `DeviceSelector(integration="mobile_app")`, same as supporters
+  already used) to that device's `notify` entity and call the generic
+  `notify.send_message` action - the modern (2024.10+) notify-entity
+  pattern. `async_notify_owner()` targets the new `owner_notify_device`
+  setting; `async_notify_supporters()` targets every supporter subscribed
+  to a given category, at their own `detail_level`. A device that can't be
+  resolved to a notify entity logs a warning instead of failing anything
+  else.
+- New settings: `owner_notify_device` (optional - the cycle owner's own
+  device for the daily reminder), `escalation_grace_minutes` (default 60,
+  replaces the value that was hardcoded in v0.2.0/v0.3.0),
+  `escalation_repeat_minutes` (default 30), `escalation_max_count` (default
+  3), `restock_days_before` (default 3). All editable via Options Flow or
+  `perioder.update_settings`.
+- The 15-minute tick (already used for `request_refresh()`) now also runs
+  `_async_check_contraception_notifications()`:
+  - Sends the daily reminder to `owner_notify_device` once `reminder_time`
+    has passed for a still-unconfirmed pill day.
+  - After `escalation_grace_minutes` with no confirmation, calls
+    `perioder.log_pill_missed` for real (this existed in storage.py since
+    v0.2.0 but nothing ever called it), notifies the owner, and notifies
+    every supporter subscribed to the `missed_dose` category - with a note
+    appended if today is also in the fertile window (the "vynechaná dávka
+    → propojení s fertilním oknem" item from the roadmap's M2/M3 section
+    2.3).
+  - Keeps re-notifying the owner only (not supporters again) every
+    `escalation_repeat_minutes`, up to `escalation_max_count` times.
+  - Confirming the dose (taken) at any point stops all of the above for
+    that day - only an actual "taken" status ends it, not just any pill_log
+    entry (see Fixed below).
+  - Separately, once the pack has `restock_days_before` or fewer active
+    pill days left, notifies supporters subscribed to
+    `contraception_restock` once per pack.
+  - Tick granularity is 15 minutes, so this isn't exact-time - fine for a
+    daily reminder, but `escalation_repeat_minutes` shorter than ~15 has no
+    extra effect.
+- `switch.pause_notifications` + `perioder.pause_notifications` service:
+  mute everything above (owner reminder/escalation and all supporter
+  categories) without losing any cycle/contraception data.
+
+### Fixed
+
+- Caught during testing of the tick logic (standalone simulation, not live
+  HA - see Notes): the first draft stopped the reminder/escalation flow
+  entirely as soon as *any* `pill_log` entry existed for today, including
+  one just created by the "missed" branch itself - so escalation fired
+  once and then silently never repeated, no matter how long it went
+  unconfirmed. Fixed to only stop on a `"taken"` status; a `"missed"` entry
+  now correctly keeps escalating up to `escalation_max_count`.
+
+### Changed
+
+- `sensor.contraception_status` now uses the configurable
+  `escalation_grace_minutes` setting instead of a hardcoded 60-minute grace
+  period, so the sensor and the notification engine always agree on what
+  "missed" means.
+- `hacs.json`'s minimum Home Assistant version raised from `2024.6.0` to
+  `2024.10.0` - the notify-entity platform (`notify.send_message`) this
+  release's dispatch relies on landed around then. This is a reasonable
+  estimate, not something verified against Home Assistant's own release
+  notes for the exact version.
+
+### Notes
+
+- **Scope, deliberately**: only `missed_dose` and `contraception_restock`
+  fire as supporter notifications in this release. `pms`, `period`, and
+  `fertility` as their own *transition-triggered* supporter notifications
+  (e.g. "PMS window just started", "period starting in 2 days") are not
+  wired up yet - the category subscriptions have existed since v0.1.1 and
+  the dispatch engine now exists to support them, but building all five at
+  once risked doing each one less carefully. Left as an explicit follow-up
+  on the roadmap.
+- **Not independently verified against a live Home Assistant instance or a
+  real mobile_app device** - only the pure decision logic (when to remind,
+  when to escalate, when to stop, restock timing) was verified via a
+  standalone simulation outside Home Assistant (same approach used for
+  `cycle_math.py`/`pill_math.py`/`calendar.py`'s date arithmetic). The
+  device_id → notify entity resolution and the actual `notify.send_message`
+  call are new, HA-coupled code paths that haven't been exercised against
+  a running instance - please report if a configured `owner_notify_device`
+  or supporter doesn't actually receive anything.
+
 ## [0.3.0] - 2026-07-29
 
 M3 completed (except the notification-facing pieces, deferred to M4) -

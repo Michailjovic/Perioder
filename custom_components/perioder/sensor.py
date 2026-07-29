@@ -175,6 +175,7 @@ class ContraceptionStatusSensor(_PerioderSensorBase):
             pill_log=contraception["pill_log"],
             now=datetime.now(),
             reminder_time=reminder_time,
+            grace_minutes=settings["escalation_grace_minutes"],
         )
 
     @property

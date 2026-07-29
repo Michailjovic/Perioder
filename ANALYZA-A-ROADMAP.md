@@ -168,11 +168,14 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - [x] `calendar.py` — predikce period/plodných dní/pauz balení (dopředu i zpětně), plus zobrazení logovaných `pill_log` záznamů (vzato/vynecháno) s výpočtem zpoždění oproti `reminder_time` (nápad z 2026-07-29, viz 2.1 a CHANGELOG v0.3.0)
 - [x] Služba: `update_settings`
 
-### M4 — Podporovatelé a notifikace
+### M4 — Podporovatelé a notifikace ✅ z části (v0.4.0)
 - [x] Datový model podporovatelů (cíl, kategorie, detail úroveň) — hotovo už v Options Flow (v0.1.1)
-- [ ] Notifikační engine respektující odběry a úroveň detailu per příjemce
-- [ ] Denní připomínka antikoncepce + eskalace (actionable notification, přesunuto z M2 — viz CHANGELOG v0.2.0), včetně ranního "vynecháno" souhrnu a propojení s fertilním oknem
-- [ ] `perioder.pause_notifications`
+- [x] Notifikační engine respektující odběry a úroveň detailu per příjemce (`notifications.py`)
+- [x] Denní připomínka antikoncepce + eskalace (přesunuto z M2 — viz CHANGELOG v0.2.0/v0.4.0), včetně "vynecháno" notifikace a propojení s fertilním oknem — informační notifikace, zatím BEZ actionable tlačítka přímo v notifikaci (potvrzení stále přes dashboard/tlačítko/službu, ne přímou akcí z push notifikace)
+- [x] `perioder.pause_notifications` + `switch.pause_notifications`
+- [ ] **Nedokončeno, vědomě odloženo:** `pms`/`period`/`fertility` jako vlastní *transition-triggered* notifikace podporovatelům (např. "právě začalo PMS okno", "perioda za 2 dny") — odběry těchto kategorií existují od v0.1.1, dispatch engine z v0.4.0 už to umí odbavit, jen zatím nic tyhle 3 kategorie nespouští
+- [ ] Actionable notifikace (tlačítko "Vzato" přímo v push notifikaci, ne jen na dashboardu) — vyžaduje naslouchání HA události `mobile_app_notification_action`, zatím neimplementováno
+- [ ] Ověření proti reálné běžící Home Assistant instanci a reálnému mobile_app zařízení — zatím ověřeno jen logikou (standalone simulace rozhodovacího stromu), ne živým doručením notifikace
 
 ### M5 — Symptomy, sdílený kalendář, dashboard
 - [ ] `log_symptom` + historie/trendy, export

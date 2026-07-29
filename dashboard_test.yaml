@@ -1,4 +1,4 @@
-# Perioder v0.3.0 - test dashboard (single VIEW, not a whole-dashboard file)
+# Perioder v0.4.0 - test dashboard (single VIEW, not a whole-dashboard file)
 #
 # Setup:
 #   1. Integration must be named exactly "Test" during setup.
@@ -24,13 +24,15 @@ path: perioder-test
 cards:
   - type: markdown
     content: >-
-      **Perioder v0.3.0 - test dashboard.** Klikni na "Zapsat začátek
+      **Perioder v0.4.0 - test dashboard.** Klikni na "Zapsat začátek
       periody" a vyber datum - i zpětně, pokud se to dozvíš až druhý den.
       "PMS přebití" testuje PMS okno bez čekání na skutečné datum. Antikoncepci
       nejdřív jednou nastartuj přes `perioder.start_new_pack` (Developer
       Tools > Actions), pak už jen mačkej "Potvrdit prášek". Kalendář dole
       ukazuje predikce period/plodných dní/pauz balení a zpětně i to, kdy
-      byl prášek skutečně potvrzený (a o kolik pozdě).
+      byl prášek skutečně potvrzený (a o kolik pozdě). Denní připomínka a
+      eskalace fungují jen pokud máš v Configure vyplněné "Your own notify
+      device" - kontrola běží každých 15 minut, ne přesně na čas.
 
   - type: glance
     title: Stav cyklu
@@ -79,6 +81,8 @@ cards:
         name: PMS přebití
       - entity: button.test_confirm_pill_taken
         name: Potvrdit prášek
+      - entity: switch.test_pause_notifications
+        name: Pozastavit notifikace
 
   - type: calendar
     title: Kalendář cyklu

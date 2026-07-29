@@ -37,6 +37,21 @@ class ContraceptionState(TypedDict):
     pill_log: dict[str, PillLogEntry]  # date_str -> {"status", "logged_at"}
 
 
+class NotificationState(TypedDict):
+    """Runtime state for the M4 notification engine (__init__.py's tick + notifications.py).
+
+    Not settings (those live in the config entry, see settings.py) - this is
+    "where things stand right now" bookkeeping so the periodic tick knows
+    what it has already sent today and doesn't repeat/spam.
+    """
+
+    paused: bool  # perioder.pause_notifications / switch.pause_notifications
+    last_reminder_date: str | None  # date the initial daily reminder was last sent
+    escalation_count: int  # escalations sent so far for the current missed dose
+    last_escalation_at: str | None  # isoformat datetime of the last escalation sent
+    restock_notified_for: str | None  # pack_start_date already notified about restock
+
+
 class PerioderStorageData(TypedDict):
     version: int
     last_period_start: str | None
@@ -44,10 +59,21 @@ class PerioderStorageData(TypedDict):
     contraception: ContraceptionState
     symptoms: dict[str, str]  # symptom -> iso timestamp of the most recent log
     symptom_log: list[dict[str, str]]  # full history: [{"symptom", "logged_at"}]
+    notifications: NotificationState
 
 
 def _default_contraception() -> ContraceptionState:
     return {"active": False, "pack_start_date": None, "pill_log": {}}
+
+
+def _default_notifications() -> NotificationState:
+    return {
+        "paused": False,
+        "last_reminder_date": None,
+        "escalation_count": 0,
+        "last_escalation_at": None,
+        "restock_notified_for": None,
+    }
 
 
 def _default_data() -> PerioderStorageData:
@@ -58,6 +84,7 @@ def _default_data() -> PerioderStorageData:
         "contraception": _default_contraception(),
         "symptoms": {},
         "symptom_log": [],
+        "notifications": _default_notifications(),
     }
 
 
@@ -84,6 +111,8 @@ class PerioderData:
             data.setdefault(key, value)
         for key, value in defaults["contraception"].items():
             data["contraception"].setdefault(key, value)
+        for key, value in defaults["notifications"].items():
+            data["notifications"].setdefault(key, value)
 
         # v0.2.0 stored pill_log values as a plain "taken"/"missed" string;
         # v0.3.0 needs the confirmation time too (to show delay vs.
@@ -190,4 +219,34 @@ class PerioderData:
             now = datetime.now().isoformat()
             self.data["symptoms"][symptom] = now
             self.data.setdefault("symptom_log", []).append({"symptom": symptom, "logged_at": now})
+            await self.async_save()
+
+    # -- notifications (M4) --------------------------------------------------
+
+    @property
+    def notifications(self) -> NotificationState:
+        return self.data["notifications"] if self.data else _default_notifications()
+
+    async def async_set_notifications_paused(self, paused: bool) -> None:
+        if self.data:
+            self.data["notifications"]["paused"] = paused
+            await self.async_save()
+
+    async def async_mark_reminder_sent(self, log_date: date) -> None:
+        """Record that today's initial reminder went out, resetting escalation counters."""
+        if self.data:
+            self.data["notifications"]["last_reminder_date"] = log_date.isoformat()
+            self.data["notifications"]["escalation_count"] = 0
+            self.data["notifications"]["last_escalation_at"] = None
+            await self.async_save()
+
+    async def async_mark_escalation_sent(self, when: datetime) -> None:
+        if self.data:
+            self.data["notifications"]["escalation_count"] += 1
+            self.data["notifications"]["last_escalation_at"] = when.isoformat()
+            await self.async_save()
+
+    async def async_mark_restock_notified(self, pack_start_date: str) -> None:
+        if self.data:
+            self.data["notifications"]["restock_notified_for"] = pack_start_date
             await self.async_save()

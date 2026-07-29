@@ -3,5 +3,5 @@
   "render_readme": true,
   "hacs": "1.6.0",
   "zip_release": false,
-  "homeassistant": "2024.6.0"
+  "homeassistant": "2024.10.0"
 }

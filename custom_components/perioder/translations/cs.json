@@ -13,7 +13,12 @@
           "regimen_type": "Typ antikoncepčního balení",
           "pack_size": "Velikost balení ve dnech (jen u vlastního typu)",
           "pause_days": "Dny pauzy (jen u vlastního typu)",
-          "reminder_time": "Čas denní připomínky antikoncepce"
+          "reminder_time": "Čas denní připomínky antikoncepce",
+          "owner_notify_device": "Tvoje vlastní notifikační zařízení (pro denní připomínku)",
+          "escalation_grace_minutes": "Doba, po které se dávka počítá jako vynechaná (minuty)",
+          "escalation_repeat_minutes": "Interval mezi eskalačními připomínkami (minuty)",
+          "escalation_max_count": "Maximální počet eskalačních připomínek",
+          "restock_days_before": "Upozornit podporovatele tolik dní před koncem balení"
         }
       }
     },
@@ -39,7 +44,12 @@
           "regimen_type": "Typ antikoncepčního balení",
           "pack_size": "Velikost balení ve dnech (jen u vlastního typu)",
           "pause_days": "Dny pauzy (jen u vlastního typu)",
-          "reminder_time": "Čas denní připomínky antikoncepce"
+          "reminder_time": "Čas denní připomínky antikoncepce",
+          "owner_notify_device": "Tvoje vlastní notifikační zařízení (pro denní připomínku)",
+          "escalation_grace_minutes": "Doba, po které se dávka počítá jako vynechaná (minuty)",
+          "escalation_repeat_minutes": "Interval mezi eskalačními připomínkami (minuty)",
+          "escalation_max_count": "Maximální počet eskalačních připomínek",
+          "restock_days_before": "Upozornit podporovatele tolik dní před koncem balení"
         }
       },
       "supporters": {
@@ -178,6 +188,11 @@
     "calendar": {
       "cycle_calendar": {
         "name": "Kalendář cyklu"
+      }
+    },
+    "switch": {
+      "pause_notifications": {
+        "name": "Pozastavit notifikace"
       }
     }
   }
