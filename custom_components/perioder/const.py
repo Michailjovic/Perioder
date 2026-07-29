@@ -27,6 +27,9 @@ CONF_RESTOCK_DAYS_BEFORE = "restock_days_before"
 # Config / options keys - shared calendar (M5)
 CONF_SHARED_CALENDAR_CATEGORIES = "shared_calendar_categories"
 
+# Config / options keys - pill stock (v0.8.0)
+CONF_LOW_STOCK_THRESHOLD = "low_stock_threshold"
+
 DEFAULT_CYCLE_LENGTH = 28
 DEFAULT_PERIOD_DURATION = 5
 DEFAULT_GOAL = "track"
@@ -43,6 +46,13 @@ DEFAULT_ESCALATION_GRACE_MINUTES = 60
 DEFAULT_ESCALATION_REPEAT_MINUTES = 30
 DEFAULT_ESCALATION_MAX_COUNT = 3
 DEFAULT_RESTOCK_DAYS_BEFORE = 3
+
+# Below this many physical pills left at home, warn once (until restocked).
+# Separate from restock_days_before: that one is about the *current pack*
+# (its active days are running out - time to open a new one); this one is
+# about the *physical supply at home* (number.*_pills_in_stock) - do you
+# actually have a next pack, or do you need to go buy more. See v0.8.0.
+DEFAULT_LOW_STOCK_THRESHOLD = 5
 
 # Which block types show up (generically, no detail) on calendar.*_shared_calendar.
 # The cycle owner picks these (see ANALYZA-A-ROADMAP.md section 2.7); in this
@@ -111,6 +121,14 @@ SUPPORTER_CATEGORIES = [
 DETAIL_GENERAL = "general"
 DETAIL_DETAILED = "detailed"
 DETAIL_LEVELS = [DETAIL_GENERAL, DETAIL_DETAILED]
+
+# Mobile app push-notification action identifiers (v0.8.0) - suffixed with a
+# config entry_id at send time so multiple cycle owners in one Home Assistant
+# don't collide, and so the shared event listener in __init__.py knows which
+# entry's storage/settings to act on. See notifications.py / __init__.py.
+ACTION_CONFIRM_PILL_PREFIX = "PERIODER_CONFIRM_PILL_"
+ACTION_POSTPONE_PILL_PREFIX = "PERIODER_POSTPONE_PILL_"
+EVENT_MOBILE_APP_NOTIFICATION_ACTION = "mobile_app_notification_action"
 
 # Common symptoms for perioder.log_symptom (M2+).
 SYMPTOM_CRAMPS = "cramps"

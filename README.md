@@ -23,7 +23,7 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
 3. Install **Perioder** and restart Home Assistant.
 4. Settings > Devices & Services > Add Integration > **Perioder**.
 
-## First use / testing (v0.7.0)
+## First use / testing (v0.8.0)
 
 1. During setup, name it exactly **Test** (this becomes the device name and
    determines entity IDs - the ready-made dashboard below assumes this name).
@@ -64,16 +64,25 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
 9. The shared calendar shows only generic "Citlivé období" blocks - which
    block types it reflects at all is the `shared_calendar_categories`
    setting (defaults to just periods).
+10. `number.*_pills_in_stock` is a real, settable count of tablets at home -
+    set it after buying more (or via `perioder.set_pills_in_stock`); each
+    confirmed dose decrements it by one. Once it drops to or below
+    `low_stock_threshold` (default 5), you and subscribed supporters get
+    warned once - separate from the pack-days-remaining warning above.
+11. On a phone with the Home Assistant Companion app, the reminder and
+    escalation notifications now carry two buttons: "Vzal(a) jsem" confirms
+    today's dose without opening the app; "Odložit" postpones the nag by
+    `escalation_repeat_minutes` without marking anything taken or missed.
 
 Prefer Developer Tools > Actions, or calling this from an automation/voice
 command/NFC tag? `perioder.log_period_start`, `perioder.set_pms_override`,
 `perioder.log_pill_taken`, `perioder.start_new_pack`,
 `perioder.set_contraception_active`, `perioder.update_settings`,
-`perioder.pause_notifications`, `perioder.log_symptom`, and
-`perioder.export_symptom_log` all exist and do exactly the same thing as
-the matching entities/Options Flow.
+`perioder.pause_notifications`, `perioder.log_symptom`,
+`perioder.export_symptom_log`, and `perioder.set_pills_in_stock` all exist
+and do exactly the same thing as the matching entities/Options Flow.
 
-## Current scope (v0.7.0)
+## Current scope (v0.8.0)
 
 - Config + options flow (settings, supporter management), plus
   `perioder.update_settings` for changing settings outside the flow -
@@ -92,30 +101,34 @@ the matching entities/Options Flow.
 - Button entities: confirm today's pill taken, log each of the 4 built-in
   symptoms (cramps, headache, low energy, mood change).
 - Switch entity: pause all notifications for this cycle owner.
+- Number entity: `pills_in_stock` - settable physical tablet count, auto-decremented per confirmed dose.
 - Calendar entities: `cycle_calendar` (detailed - predicted period/fertile/
   pack-pause blocks plus every logged pill confirmation, with the delay vs.
   the reminder time) and `shared_calendar` (generic "sensitive period"
   blocks with no detail, for exporting to a shared family calendar -
   which block types show up at all is configurable).
 - Notifications: daily contraception reminder + escalation to your own
-  device, a missed-dose alert to subscribed supporters (with a
-  fertile-window heads-up folded in), and a one-shot "pack running low"
-  notice to supporters subscribed to restock alerts.
+  device (with actionable "Vzal(a) jsem"/"Odložit" buttons, v0.8.0), a
+  missed-dose alert to subscribed supporters (with a fertile-window
+  heads-up folded in), a one-shot "pack running low" notice (current pack's
+  active days ending soon) and a separate one-shot "low stock" notice
+  (real `pills_in_stock` count dropping to/below `low_stock_threshold`) to
+  supporters subscribed to restock alerts.
 - Services: `log_period_start`, `set_pms_override`, `log_pill_taken`,
   `start_new_pack`, `set_contraception_active`, `update_settings`,
-  `pause_notifications`, `log_symptom`, `export_symptom_log` (same effect
-  as the entities/Options Flow above, for automations/voice/NFC).
+  `pause_notifications`, `log_symptom`, `export_symptom_log`,
+  `set_pills_in_stock` (same effect as the entities/Options Flow above, for
+  automations/voice/NFC).
 
 Not yet implemented: `pms`/`period`/`fertility` as their own
 transition-triggered supporter notifications (e.g. "PMS window just
-started"), actionable notification buttons (confirming from the push
-notification itself, not just the dashboard), and history/trend graph
-cards (the sensors have the needed data, no graph card is wired into
-`dashboard_test.yaml` yet). The notification dispatch code also hasn't
-been exercised against a live Home Assistant instance yet - only its
-decision logic has been verified standalone; please report if a
-notification doesn't actually arrive. See `CHANGELOG.md` and
-`ANALYZA-A-ROADMAP.md`.
+started"), and history/trend graph cards (the sensors have the needed
+data, no graph card is wired into `dashboard_test.yaml` yet). The
+notification dispatch code (including the new v0.8.0 actionable buttons)
+also hasn't been exercised against a live Home Assistant instance yet -
+only its decision logic has been verified standalone; please report if a
+notification doesn't arrive, or if the "Vzal(a) jsem"/"Odložit" buttons
+don't show up on your phone. See `CHANGELOG.md` and `ANALYZA-A-ROADMAP.md`.
 
 ## Optional automation blueprints
 
@@ -150,6 +163,9 @@ not automated tests.
   any from a running instance.
 - The notification engine (M4) hasn't been confirmed working against a
   real `mobile_app` device end-to-end.
+- The v0.8.0 actionable notification buttons ("Vzal(a) jsem"/"Odložit")
+  depend on the Home Assistant Companion app version on the phone - not yet
+  confirmed to actually render as tappable buttons on a real device.
 - See "Not yet implemented" above and `ANALYZA-A-ROADMAP.md` for the rest.
 
 ## Project docs

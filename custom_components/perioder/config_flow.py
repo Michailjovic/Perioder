@@ -33,6 +33,7 @@ from .const import (
     CONF_ESCALATION_MAX_COUNT,
     CONF_ESCALATION_REPEAT_MINUTES,
     CONF_GOAL,
+    CONF_LOW_STOCK_THRESHOLD,
     CONF_NAME,
     CONF_OWNER_NOTIFY_DEVICE,
     CONF_PACK_SIZE,
@@ -48,6 +49,7 @@ from .const import (
     DEFAULT_ESCALATION_MAX_COUNT,
     DEFAULT_ESCALATION_REPEAT_MINUTES,
     DEFAULT_GOAL,
+    DEFAULT_LOW_STOCK_THRESHOLD,
     DEFAULT_PERIOD_DURATION,
     DEFAULT_PMS_WINDOW_DAYS,
     DEFAULT_REGIMEN_TYPE,
@@ -128,6 +130,9 @@ def _settings_schema(defaults: dict[str, Any]) -> vol.Schema:
                     mode=selector.SelectSelectorMode.LIST,
                 )
             ),
+            vol.Optional(
+                CONF_LOW_STOCK_THRESHOLD, default=defaults[CONF_LOW_STOCK_THRESHOLD]
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
         }
     )
 
@@ -190,6 +195,7 @@ class PerioderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_ESCALATION_MAX_COUNT: DEFAULT_ESCALATION_MAX_COUNT,
             CONF_RESTOCK_DAYS_BEFORE: DEFAULT_RESTOCK_DAYS_BEFORE,
             CONF_SHARED_CALENDAR_CATEGORIES: DEFAULT_SHARED_CALENDAR_CATEGORIES,
+            CONF_LOW_STOCK_THRESHOLD: DEFAULT_LOW_STOCK_THRESHOLD,
         }
 
         schema = vol.Schema({vol.Required(CONF_NAME): str}).extend(_settings_schema(defaults).schema)
@@ -227,6 +233,7 @@ class PerioderOptionsFlow(OptionsFlowWithReload):
             self._options.setdefault(CONF_ESCALATION_MAX_COUNT, DEFAULT_ESCALATION_MAX_COUNT)
             self._options.setdefault(CONF_RESTOCK_DAYS_BEFORE, DEFAULT_RESTOCK_DAYS_BEFORE)
             self._options.setdefault(CONF_SHARED_CALENDAR_CATEGORIES, DEFAULT_SHARED_CALENDAR_CATEGORIES)
+            self._options.setdefault(CONF_LOW_STOCK_THRESHOLD, DEFAULT_LOW_STOCK_THRESHOLD)
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         self._ensure_working_copy()

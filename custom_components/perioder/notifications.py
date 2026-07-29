@@ -15,18 +15,38 @@ block anything else in the integration.
 - `async_notify_supporters()`: every supporter subscribed to the given
   category (see const.SUPPORTER_CATEGORIES), respecting each supporter's own
   `detail_level` (general vs. detailed message).
+
+v0.8.0 adds `pill_actions()`: the two mobile_app notification actions
+("Vzal(a) jsem" / "Odložit") attached to the owner's reminder/escalation
+notifications, via `notify.send_message`'s `data.actions` passthrough - the
+same `data` field the legacy `notify.mobile_app_*` services accepted. Tapping
+one fires the `mobile_app_notification_action` event, handled in __init__.py.
 """
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_OWNER_NOTIFY_DEVICE, DETAIL_DETAILED
+from .const import ACTION_CONFIRM_PILL_PREFIX, ACTION_POSTPONE_PILL_PREFIX, CONF_OWNER_NOTIFY_DEVICE, DETAIL_DETAILED
 from .settings import get_settings, get_supporters
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def pill_actions(entry_id: str) -> list[dict[str, str]]:
+    """Notification actions for the owner's daily reminder/escalation.
+
+    The action identifiers are suffixed with `entry_id` so the shared event
+    listener in __init__.py can tell which cycle owner a tap belongs to, and
+    so two different Perioder entries never collide in the mobile app.
+    """
+    return [
+        {"action": f"{ACTION_CONFIRM_PILL_PREFIX}{entry_id}", "title": "Vzal(a) jsem"},
+        {"action": f"{ACTION_POSTPONE_PILL_PREFIX}{entry_id}", "title": "Odložit"},
+    ]
 
 
 def _notify_entity_id(hass: HomeAssistant, device_id: str) -> str | None:
@@ -38,8 +58,14 @@ def _notify_entity_id(hass: HomeAssistant, device_id: str) -> str | None:
     return None
 
 
-async def async_send_to_device(hass: HomeAssistant, device_id: str, title: str, message: str) -> None:
-    """Send a notification to a device_id, or log a warning if it can't be resolved."""
+async def async_send_to_device(
+    hass: HomeAssistant, device_id: str, title: str, message: str, *, data: dict[str, Any] | None = None
+) -> None:
+    """Send a notification to a device_id, or log a warning if it can't be resolved.
+
+    `data` is passed straight through as `notify.send_message`'s own `data`
+    field - e.g. `{"actions": pill_actions(entry_id)}` for actionable buttons.
+    """
     entity_id = _notify_entity_id(hass, device_id)
     if entity_id is None:
         _LOGGER.warning(
@@ -49,15 +75,15 @@ async def async_send_to_device(hass: HomeAssistant, device_id: str, title: str, 
         )
         return
 
-    await hass.services.async_call(
-        "notify",
-        "send_message",
-        {"entity_id": entity_id, "title": title, "message": message},
-        blocking=False,
-    )
+    payload: dict[str, Any] = {"entity_id": entity_id, "title": title, "message": message}
+    if data:
+        payload["data"] = data
+    await hass.services.async_call("notify", "send_message", payload, blocking=False)
 
 
-async def async_notify_owner(hass: HomeAssistant, entry, title: str, message: str) -> None:
+async def async_notify_owner(
+    hass: HomeAssistant, entry, title: str, message: str, *, data: dict[str, Any] | None = None
+) -> None:
     """Notify the cycle owner's own device, if one is configured."""
     device_id = get_settings(entry).get(CONF_OWNER_NOTIFY_DEVICE)
     if not device_id:
@@ -67,7 +93,7 @@ async def async_notify_owner(hass: HomeAssistant, entry, title: str, message: st
             title,
         )
         return
-    await async_send_to_device(hass, device_id, title, message)
+    await async_send_to_device(hass, device_id, title, message, data=data)
 
 
 async def async_notify_supporters(

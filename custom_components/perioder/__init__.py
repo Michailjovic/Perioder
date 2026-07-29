@@ -21,6 +21,13 @@ all of it without losing data. Scope note: only `missed_dose` and
 are intentionally left for a follow-up, see CHANGELOG.md and
 ANALYZA-A-ROADMAP.md.
 
+v0.8.0 adds a real pill-stock count (`number.*_pills_in_stock`, auto-decremented
+per confirmed dose, see storage.py) with its own low-stock warning - separate
+from the existing pack-days-remaining check, which is about the *current
+pack* running out, not the physical supply at home - plus actionable buttons
+("Vzal(a) jsem" / "Odložit") on the owner's reminder/escalation notifications,
+handled here via a shared `mobile_app_notification_action` event listener.
+
 Settings and supporters live in the config entry (data/options) and are
 handled by config_flow.py + settings.py; this module only owns the runtime
 Store (storage.py) for cycle/contraception/symptom state. Because the
@@ -38,7 +45,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import Event, HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import slugify
@@ -47,6 +54,8 @@ from . import cycle_math as cm
 from . import notifications
 from . import pill_math as pm
 from .const import (
+    ACTION_CONFIRM_PILL_PREFIX,
+    ACTION_POSTPONE_PILL_PREFIX,
     CATEGORY_CONTRACEPTION_RESTOCK,
     CATEGORY_MISSED_DOSE,
     CONF_CYCLE_LENGTH,
@@ -54,6 +63,7 @@ from .const import (
     CONF_ESCALATION_MAX_COUNT,
     CONF_ESCALATION_REPEAT_MINUTES,
     CONF_GOAL,
+    CONF_LOW_STOCK_THRESHOLD,
     CONF_OWNER_NOTIFY_DEVICE,
     CONF_PACK_SIZE,
     CONF_PAUSE_DAYS,
@@ -64,6 +74,7 @@ from .const import (
     CONF_RESTOCK_DAYS_BEFORE,
     CONF_SHARED_CALENDAR_CATEGORIES,
     DOMAIN,
+    EVENT_MOBILE_APP_NOTIFICATION_ACTION,
     FERTILITY_FERTILE,
     GOALS,
     REGIMEN_TYPES,
@@ -83,6 +94,7 @@ PLATFORMS: list[Platform] = [
     Platform.BUTTON,
     Platform.CALENDAR,
     Platform.SWITCH,
+    Platform.NUMBER,
 ]
 
 SERVICE_LOG_PERIOD_START = "log_period_start"
@@ -94,6 +106,7 @@ SERVICE_UPDATE_SETTINGS = "update_settings"
 SERVICE_PAUSE_NOTIFICATIONS = "pause_notifications"
 SERVICE_LOG_SYMPTOM = "log_symptom"
 SERVICE_EXPORT_SYMPTOM_LOG = "export_symptom_log"
+SERVICE_SET_PILLS_IN_STOCK = "set_pills_in_stock"
 
 _PMS_OVERRIDE_VALUES = {"auto": None, "active": True, "inactive": False}
 _ALL_SERVICES = (
@@ -106,6 +119,7 @@ _ALL_SERVICES = (
     SERVICE_PAUSE_NOTIFICATIONS,
     SERVICE_LOG_SYMPTOM,
     SERVICE_EXPORT_SYMPTOM_LOG,
+    SERVICE_SET_PILLS_IN_STOCK,
 )
 
 _ENTRY_TARGET_SCHEMA = {
@@ -115,6 +129,12 @@ _ENTRY_TARGET_SCHEMA = {
 }
 
 REFRESH_INTERVAL = timedelta(minutes=15)
+
+# Key under which the shared (not per-entry) mobile_app_notification_action
+# listener's unsubscribe callable is stashed in hass.data - registered once
+# on the first config entry's setup, removed once the last one unloads, same
+# lifecycle as _ALL_SERVICES below.
+_ACTION_LISTENER_KEY = f"{DOMAIN}_action_listener"
 
 
 def _get_entry_data(hass: HomeAssistant, config_entry_id: str) -> PerioderData:
@@ -151,7 +171,42 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     _async_register_services(hass)
 
+    if _ACTION_LISTENER_KEY not in hass.data:
+        hass.data[_ACTION_LISTENER_KEY] = hass.bus.async_listen(
+            EVENT_MOBILE_APP_NOTIFICATION_ACTION,
+            lambda event: hass.async_create_task(_async_handle_notification_action(hass, event)),
+        )
+
     return True
+
+
+async def _async_handle_notification_action(hass: HomeAssistant, event: Event) -> None:
+    """React to a tap on the reminder/escalation notification's action buttons.
+
+    Registered once for the whole integration (not per config entry), since
+    the `mobile_app_notification_action` event carries no config_entry_id -
+    only the action identifier, which is why `notifications.pill_actions()`
+    suffixes it with the entry_id in the first place.
+    """
+    action = event.data.get("action") or ""
+
+    if action.startswith(ACTION_CONFIRM_PILL_PREFIX):
+        entry_id = action[len(ACTION_CONFIRM_PILL_PREFIX):]
+        data = hass.data.get(DOMAIN, {}).get(entry_id)
+        if data is None:
+            return  # entry removed since the notification was sent
+        await data.async_log_pill_taken(date.today())
+        return
+
+    if action.startswith(ACTION_POSTPONE_PILL_PREFIX):
+        entry_id = action[len(ACTION_POSTPONE_PILL_PREFIX):]
+        data = hass.data.get(DOMAIN, {}).get(entry_id)
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if data is None or entry is None:
+            return
+        settings = get_settings(entry)
+        until = datetime.now() + timedelta(minutes=settings[CONF_ESCALATION_REPEAT_MINUTES])
+        await data.async_snooze(until)
 
 
 async def _async_check_contraception_notifications(
@@ -193,6 +248,32 @@ async def _async_check_contraception_notifications(
         )
         await data.async_mark_restock_notified(contraception["pack_start_date"])
 
+    # -- physical stock low, once until restocked (v0.8.0) -----------------
+    # Separate signal from the pack-days-remaining check above: that one is
+    # about the *current pack* (its active days are running out); this one
+    # is about the real count in number.*_pills_in_stock (is there actually a
+    # next pack at home, or is it time to buy more).
+    if (
+        not notif_state["paused"]
+        and data.pills_in_stock <= settings[CONF_LOW_STOCK_THRESHOLD]
+        and not notif_state["low_stock_notified"]
+    ):
+        await notifications.async_notify_owner(
+            hass,
+            entry,
+            "💊 Dochází zásoba",
+            f"Doma zbývá jen {data.pills_in_stock} tablet(y) antikoncepce - je čas dokoupit.",
+        )
+        await notifications.async_notify_supporters(
+            hass,
+            entry,
+            CATEGORY_CONTRACEPTION_RESTOCK,
+            title="Perioder",
+            general_message="Dochází zásoba antikoncepčních tablet doma.",
+            detailed_message=f"Doma zbývá jen {data.pills_in_stock} tablet(y) antikoncepce.",
+        )
+        await data.async_mark_low_stock_notified()
+
     # -- daily reminder / escalation / missed-dose alert -------------------
     if not pm.is_pill_day(day, settings[CONF_PACK_SIZE]):
         return  # pause day, nothing to remind about today
@@ -207,9 +288,19 @@ async def _async_check_contraception_notifications(
     if notif_state["paused"]:
         return
 
+    snoozed_until = notif_state.get("snoozed_until")
+    if snoozed_until and now < datetime.fromisoformat(snoozed_until):
+        return  # postponed via the notification's "Odložit" action
+
+    pill_action_data = {"actions": notifications.pill_actions(entry.entry_id)}
+
     if notif_state["last_reminder_date"] != today.isoformat():
         await notifications.async_notify_owner(
-            hass, entry, "💊 Čas na prášek", "Nezapomeň dnes vzít antikoncepci."
+            hass,
+            entry,
+            "💊 Čas na prášek",
+            "Nezapomeň dnes vzít antikoncepci.",
+            data=pill_action_data,
         )
         await data.async_mark_reminder_sent(today)
         return
@@ -238,6 +329,7 @@ async def _async_check_contraception_notifications(
             entry,
             "⚠️ Antikoncepce nepotvrzena",
             f"Dnešní dávka nebyla potvrzena.{fertility_note}",
+            data=pill_action_data,
         )
         await notifications.async_notify_supporters(
             hass,
@@ -262,6 +354,7 @@ async def _async_check_contraception_notifications(
             entry,
             "⚠️ Stále nepotvrzeno",
             "Připomínka: dnešní dávka antikoncepce pořád není potvrzená.",
+            data=pill_action_data,
         )
         await data.async_mark_escalation_sent(now)
 
@@ -275,6 +368,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.data.get(DOMAIN):
         for service in _ALL_SERVICES:
             hass.services.async_remove(DOMAIN, service)
+        unsub = hass.data.pop(_ACTION_LISTENER_KEY, None)
+        if unsub is not None:
+            unsub()
 
     return unload_ok
 
@@ -399,6 +495,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 vol.Optional(CONF_ESCALATION_MAX_COUNT): vol.All(vol.Coerce(int), vol.Range(min=0, max=20)),
                 vol.Optional(CONF_RESTOCK_DAYS_BEFORE): vol.All(vol.Coerce(int), vol.Range(min=0, max=14)),
                 vol.Optional(CONF_SHARED_CALENDAR_CATEGORIES): [vol.In(SHARED_CALENDAR_CATEGORIES)],
+                vol.Optional(CONF_LOW_STOCK_THRESHOLD): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
             }
         ),
     )
@@ -457,4 +554,17 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_EXPORT_SYMPTOM_LOG,
         handle_export_symptom_log,
         schema=vol.Schema({**_ENTRY_TARGET_SCHEMA, vol.Optional("filename"): cv.string}),
+    )
+
+    async def handle_set_pills_in_stock(call: ServiceCall) -> None:
+        data = _get_entry_data(hass, call.data["config_entry_id"])
+        await data.async_set_pills_in_stock(call.data["value"])
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_PILLS_IN_STOCK,
+        handle_set_pills_in_stock,
+        schema=vol.Schema(
+            {**_ENTRY_TARGET_SCHEMA, vol.Required("value"): vol.All(vol.Coerce(int), vol.Range(min=0, max=500))}
+        ),
     )

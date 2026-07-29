@@ -5,6 +5,63 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.8.0] - 2026-07-29
+
+First user-requested feature batch after live testing began: a real pill
+stock count, and actionable buttons on the contraception notifications.
+
+### Added
+
+- **`number.*_pills_in_stock`** - a settable count of how many tablets are
+  physically at home. `perioder.log_pill_taken` (and the "Confirm pill
+  taken" button) now decrements it by one automatically the first time a
+  given date is confirmed - re-confirming the same date again (e.g. a
+  double tap), or confirming a date already logged as "taken", does not
+  decrement a second time; a date previously logged "missed" and then
+  confirmed late still decrements once, since that tablet genuinely came out
+  of stock. `perioder.set_pills_in_stock` sets it directly (after a
+  purchase, or to correct drift) and re-arms the low-stock warning below.
+  Never goes negative - clamped at 0.
+- **Low-stock warning**, driven by the real count above: once
+  `pills_in_stock` drops to or below `low_stock_threshold` (new setting,
+  default 5), the owner and supporters subscribed to
+  `contraception_restock` are notified once, and not again until the count
+  is set back above the threshold via `perioder.set_pills_in_stock` /
+  the number entity. This is a deliberately separate signal from the
+  existing "pack running low" notification (M4): that one is about the
+  *current pack*'s active days running out (time to open the next one);
+  this one is about the *physical supply at home* (is there actually a next
+  pack, or is it time to go buy more) - the two can and do fire
+  independently.
+- **Actionable push notification buttons**: the owner's daily reminder and
+  every escalation nag now carry two buttons - "Vzal(a) jsem" (confirms
+  today's dose, same as the button/service) and "Odložit" (postpones the
+  nag by `escalation_repeat_minutes`, without marking anything taken or
+  missed). Implemented via `notify.send_message`'s `data.actions` field and
+  a single shared `mobile_app_notification_action` event listener
+  (registered once per Home Assistant instance, not per cycle owner - the
+  event itself carries no config_entry_id, so the action identifiers are
+  suffixed with it instead, see `notifications.pill_actions()`). Supporter
+  notifications are unchanged - a supporter still can't confirm someone
+  else's dose, only the cycle owner's own reminder gets action buttons.
+- `perioder.set_pills_in_stock` service, and `low_stock_threshold` added to
+  `perioder.update_settings` / Config+Options Flow.
+
+### Notes
+
+- Verification for this release is standalone logic simulation only (see
+  `/tmp/sim_stock.py` during development, not committed) - the stock
+  decrement guard, the notify-once/re-arm low-stock logic, and the snooze
+  window were all checked against a plain-Python re-implementation of the
+  real logic, the same way the M4 escalation engine was. None of this has
+  been exercised against a real Home Assistant instance or an actual mobile
+  app push notification yet - please report back once you've tried the
+  "Vzal(a) jsem"/"Odložit" buttons live, especially whether the actions show
+  up at all (this depends on your Home Assistant Companion app version).
+- `storage.py`/`__init__.py` import Home Assistant, so (like the rest of the
+  notification engine) none of this new logic is covered by the automated
+  `pytest` suite - only `cycle_math.py`/`pill_math.py` are.
+
 ## [0.7.0] - 2026-07-29
 
 M7 (partial) - tests, a real bug found while reviewing edge cases, and

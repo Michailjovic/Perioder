@@ -19,7 +19,8 @@
           "escalation_repeat_minutes": "Time between escalation reminders (minutes)",
           "escalation_max_count": "Maximum number of escalation reminders",
           "restock_days_before": "Notify supporters this many days before the pack runs out",
-          "shared_calendar_categories": "Which block types to reflect (generically) on the shared calendar"
+          "shared_calendar_categories": "Which block types to reflect (generically) on the shared calendar",
+          "low_stock_threshold": "Low stock threshold (warn when pills_in_stock drops to/below this)"
         }
       }
     },
@@ -51,7 +52,8 @@
           "escalation_repeat_minutes": "Time between escalation reminders (minutes)",
           "escalation_max_count": "Maximum number of escalation reminders",
           "restock_days_before": "Notify supporters this many days before the pack runs out",
-          "shared_calendar_categories": "Which block types to reflect (generically) on the shared calendar"
+          "shared_calendar_categories": "Which block types to reflect (generically) on the shared calendar",
+          "low_stock_threshold": "Low stock threshold (warn when pills_in_stock drops to/below this)"
         }
       },
       "supporters": {
@@ -229,6 +231,11 @@
     "switch": {
       "pause_notifications": {
         "name": "Pause notifications"
+      }
+    },
+    "number": {
+      "pills_in_stock": {
+        "name": "Pills in stock"
       }
     }
   }

@@ -253,6 +253,17 @@ update_settings:
               value: "fertile"
             - label: Pack pause
               value: "pause"
+    low_stock_threshold:
+      name: Low stock threshold
+      description: >-
+        Warn once (until restocked) when number.*_pills_in_stock drops to or
+        below this many tablets.
+      example: 5
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: ks
 
 pause_notifications:
   name: Pause notifications
@@ -328,3 +339,29 @@ export_symptom_log:
       example: "symptoms.csv"
       selector:
         text:
+
+set_pills_in_stock:
+  name: Set pills in stock
+  description: >-
+    Set how many pills (tablets) are physically at home right now for one
+    cycle owner - e.g. after buying more. Same effect as typing a new value
+    into number.*_pills_in_stock. Each confirmed dose already decrements
+    this automatically, so you normally only need this after a purchase or
+    to correct drift.
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    value:
+      name: Pills in stock
+      required: true
+      example: 21
+      selector:
+        number:
+          min: 0
+          max: 500
+          unit_of_measurement: ks

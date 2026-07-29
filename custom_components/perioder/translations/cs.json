@@ -19,7 +19,8 @@
           "escalation_repeat_minutes": "Interval mezi eskalačními připomínkami (minuty)",
           "escalation_max_count": "Maximální počet eskalačních připomínek",
           "restock_days_before": "Upozornit podporovatele tolik dní před koncem balení",
-          "shared_calendar_categories": "Jaké typy bloků promítnout (obecně) do sdíleného kalendáře"
+          "shared_calendar_categories": "Jaké typy bloků promítnout (obecně) do sdíleného kalendáře",
+          "low_stock_threshold": "Práh nízké zásoby (upozornit, když sklad klesne na/pod tuto hodnotu)"
         }
       }
     },
@@ -51,7 +52,8 @@
           "escalation_repeat_minutes": "Interval mezi eskalačními připomínkami (minuty)",
           "escalation_max_count": "Maximální počet eskalačních připomínek",
           "restock_days_before": "Upozornit podporovatele tolik dní před koncem balení",
-          "shared_calendar_categories": "Jaké typy bloků promítnout (obecně) do sdíleného kalendáře"
+          "shared_calendar_categories": "Jaké typy bloků promítnout (obecně) do sdíleného kalendáře",
+          "low_stock_threshold": "Práh nízké zásoby (upozornit, když sklad klesne na/pod tuto hodnotu)"
         }
       },
       "supporters": {
@@ -229,6 +231,11 @@
     "switch": {
       "pause_notifications": {
         "name": "Pozastavit notifikace"
+      }
+    },
+    "number": {
+      "pills_in_stock": {
+        "name": "Zásoba prášků"
       }
     }
   }

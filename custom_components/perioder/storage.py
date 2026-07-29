@@ -50,6 +50,8 @@ class NotificationState(TypedDict):
     escalation_count: int  # escalations sent so far for the current missed dose
     last_escalation_at: str | None  # isoformat datetime of the last escalation sent
     restock_notified_for: str | None  # pack_start_date already notified about restock
+    low_stock_notified: bool  # already warned about pills_in_stock being low (v0.8.0)
+    snoozed_until: str | None  # isoformat datetime; reminder/escalation muted until then (v0.8.0)
 
 
 class PerioderStorageData(TypedDict):
@@ -60,6 +62,7 @@ class PerioderStorageData(TypedDict):
     symptoms: dict[str, str]  # symptom -> iso timestamp of the most recent log
     symptom_log: list[dict[str, str]]  # full history: [{"symptom", "logged_at"}]
     notifications: NotificationState
+    pills_in_stock: int  # physical tablets at home right now (v0.8.0)
 
 
 def _default_contraception() -> ContraceptionState:
@@ -73,6 +76,8 @@ def _default_notifications() -> NotificationState:
         "escalation_count": 0,
         "last_escalation_at": None,
         "restock_notified_for": None,
+        "low_stock_notified": False,
+        "snoozed_until": None,
     }
 
 
@@ -85,6 +90,7 @@ def _default_data() -> PerioderStorageData:
         "symptoms": {},
         "symptom_log": [],
         "notifications": _default_notifications(),
+        "pills_in_stock": 0,
     }
 
 
@@ -203,12 +209,24 @@ class PerioderData:
         await self.async_save()
 
     async def async_log_pill_taken(self, log_date: date) -> None:
-        if self.data:
-            self.data["contraception"]["pill_log"][log_date.isoformat()] = {
-                "status": "taken",
-                "logged_at": datetime.now().isoformat(),
-            }
-            await self.async_save()
+        """Confirm a dose taken - and, the first time for this date, take one
+        tablet off `pills_in_stock` (v0.8.0). Re-confirming the same date
+        (e.g. a double tap) does not decrement a second time; a date that was
+        previously "missed" and now gets confirmed still decrements once,
+        since that tablet genuinely was taken from stock.
+        """
+        if not self.data:
+            return
+        log_key = log_date.isoformat()
+        previous = self.data["contraception"]["pill_log"].get(log_key)
+        already_taken = previous is not None and previous["status"] == "taken"
+        self.data["contraception"]["pill_log"][log_key] = {
+            "status": "taken",
+            "logged_at": datetime.now().isoformat(),
+        }
+        if not already_taken:
+            self.data["pills_in_stock"] = max(0, self.data.get("pills_in_stock", 0) - 1)
+        await self.async_save()
 
     async def async_log_pill_missed(self, log_date: date) -> None:
         if self.data:
@@ -216,6 +234,23 @@ class PerioderData:
                 "status": "missed",
                 "logged_at": datetime.now().isoformat(),
             }
+            await self.async_save()
+
+    # -- pill stock (v0.8.0) --------------------------------------------------
+
+    @property
+    def pills_in_stock(self) -> int:
+        return self.data.get("pills_in_stock", 0) if self.data else 0
+
+    async def async_set_pills_in_stock(self, value: int) -> None:
+        """Set the physical pill count directly (restocking after a purchase,
+        or correcting drift). Re-arms the low-stock warning: whatever the new
+        count is, the admin just deliberately confirmed it, so it's fair to
+        warn again later if it drops back below the threshold.
+        """
+        if self.data:
+            self.data["pills_in_stock"] = max(0, value)
+            self.data["notifications"]["low_stock_notified"] = False
             await self.async_save()
 
     # -- symptoms -----------------------------------------------------------
@@ -248,11 +283,15 @@ class PerioderData:
             await self.async_save()
 
     async def async_mark_reminder_sent(self, log_date: date) -> None:
-        """Record that today's initial reminder went out, resetting escalation counters."""
+        """Record that today's initial reminder went out, resetting escalation
+        counters and any leftover snooze from a previous day (v0.8.0) - a
+        snooze is only meant to delay *today's* nag, not bleed into tomorrow.
+        """
         if self.data:
             self.data["notifications"]["last_reminder_date"] = log_date.isoformat()
             self.data["notifications"]["escalation_count"] = 0
             self.data["notifications"]["last_escalation_at"] = None
+            self.data["notifications"]["snoozed_until"] = None
             await self.async_save()
 
     async def async_mark_escalation_sent(self, when: datetime) -> None:
@@ -264,4 +303,19 @@ class PerioderData:
     async def async_mark_restock_notified(self, pack_start_date: str) -> None:
         if self.data:
             self.data["notifications"]["restock_notified_for"] = pack_start_date
+            await self.async_save()
+
+    async def async_mark_low_stock_notified(self) -> None:
+        if self.data:
+            self.data["notifications"]["low_stock_notified"] = True
+            await self.async_save()
+
+    async def async_snooze(self, until: datetime) -> None:
+        """Postpone the reminder/escalation nag until `until` (v0.8.0) -
+        triggered by tapping "Odložit" on the push notification itself.
+        Does not touch escalation_count/pill_log: it's a pure delay, not a
+        confirmation.
+        """
+        if self.data:
+            self.data["notifications"]["snoozed_until"] = until.isoformat()
             await self.async_save()

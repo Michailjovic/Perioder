@@ -24,7 +24,7 @@ path: perioder-test
 cards:
   - type: markdown
     content: >-
-      **Perioder v0.5.0 - test dashboard.** Klikni na "Zapsat začátek
+      **Perioder v0.8.0 - test dashboard.** Klikni na "Zapsat začátek
       periody" a vyber datum - i zpětně, pokud se to dozvíš až druhý den.
       "PMS přebití" testuje PMS okno bez čekání na skutečné datum. Antikoncepci
       nejdřív jednou nastartuj přes `perioder.start_new_pack` (Developer
@@ -34,7 +34,10 @@ cards:
       ukazuje jen generické "Citlivé období" bloky bez detailu (výchozí
       nastavení: jen perioda). Denní připomínka a eskalace fungují jen pokud
       máš v Configure vyplněné "Your own notify device" - kontrola běží
-      každých 15 minut, ne přesně na čas.
+      každých 15 minut, ne přesně na čas. Ta samá připomínka/eskalace má teď i
+      dvě tlačítka přímo v push notifikaci - "Vzal(a) jsem" a "Odložit" -
+      vyžaduje aktuální Home Assistant Companion app, projeví se jen na
+      telefonu, ne tady na dashboardu.
 
   - type: glance
     title: Stav cyklu
@@ -73,6 +76,8 @@ cards:
         name: Zbývá dní v balení
       - entity: binary_sensor.test_contraception_active
         name: Sledování aktivní
+      - entity: number.test_pills_in_stock
+        name: Zásoba prášků doma
 
   - type: entities
     title: Ovládání

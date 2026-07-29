@@ -44,6 +44,7 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - Vynechaná dávka → záznam `missed`, ranní souhrn vlastníkovi cyklu i přihlášeným podporovatelům.
 - Propojení s plodností: pokud vynechaná dávka spadne do fertilního okna, notifikace explicitně upozorní na potřebu záložní ochrany.
 - Docházející balení → notifikace na dokoupení (nastavitelný počet dní předem).
+- **Reálná fyzická zásoba tablet doma** (`pills_in_stock`, v0.8.0) — nastavitelné číslo, ne odvozené z rozvrhu balení, s vlastním prahem pro upozornění "dochází zásoba"; nezávislé na výše uvedeném "docházející balení", protože to druhé je o aktuálním balení, tohle o tom, jestli je doma vůbec další.
 - Služby: `start_new_pack`, `set_contraception_active`.
 
 ### 2.4 Symptomy a historie/trendy
@@ -171,10 +172,10 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 ### M4 — Podporovatelé a notifikace ✅ z části (v0.4.0)
 - [x] Datový model podporovatelů (cíl, kategorie, detail úroveň) — hotovo už v Options Flow (v0.1.1)
 - [x] Notifikační engine respektující odběry a úroveň detailu per příjemce (`notifications.py`)
-- [x] Denní připomínka antikoncepce + eskalace (přesunuto z M2 — viz CHANGELOG v0.2.0/v0.4.0), včetně "vynecháno" notifikace a propojení s fertilním oknem — informační notifikace, zatím BEZ actionable tlačítka přímo v notifikaci (potvrzení stále přes dashboard/tlačítko/službu, ne přímou akcí z push notifikace)
+- [x] Denní připomínka antikoncepce + eskalace (přesunuto z M2 — viz CHANGELOG v0.2.0/v0.4.0), včetně "vynecháno" notifikace a propojení s fertilním oknem
 - [x] `perioder.pause_notifications` + `switch.pause_notifications`
 - [ ] **Nedokončeno, vědomě odloženo:** `pms`/`period`/`fertility` jako vlastní *transition-triggered* notifikace podporovatelům (např. "právě začalo PMS okno", "perioda za 2 dny") — odběry těchto kategorií existují od v0.1.1, dispatch engine z v0.4.0 už to umí odbavit, jen zatím nic tyhle 3 kategorie nespouští
-- [ ] Actionable notifikace (tlačítko "Vzato" přímo v push notifikaci, ne jen na dashboardu) — vyžaduje naslouchání HA události `mobile_app_notification_action`, zatím neimplementováno
+- [x] Actionable notifikace (tlačítka "Vzal(a) jsem"/"Odložit" přímo v push notifikaci) — dokončeno v M8/v0.8.0, viz níže
 - [ ] Ověření proti reálné běžící Home Assistant instanci a reálnému mobile_app zařízení — zatím ověřeno jen logikou (standalone simulace rozhodovacího stromu), ne živým doručením notifikace
 
 ### M5 — Symptomy, sdílený kalendář, dashboard ✅ (v0.5.0)
@@ -197,6 +198,15 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - [x] `hacs.json`, GitHub Actions (`hassfest`, `hacs` validace) — hotovo už od M1
 - [x] `CHANGELOG.md` se semver
 - [ ] **Nedokončeno:** Screenshoty dashboardu do README — není z čeho pořídit bez běžící HA instance, na to je potřeba živé testování
+
+### M8 — Sklad prášků a actionable notifikace ✅ (v0.8.0)
+
+Vyžádáno živě po prvním reálném testování v HA (2026-07-29) — nebylo v původním rozsahu M1–M7, doplňuje sekci 2.3.
+
+- [x] `number.*_pills_in_stock` — reálný, nastavitelný počet tablet doma (ne odvozený z rozvrhu balení), auto-decrement při každém prvním potvrzení dávky na daný den (dvojité potvrzení stejného dne nedekrementuje podruhé), `perioder.set_pills_in_stock` service
+- [x] Samostatná notifikace "dochází zásoba" podle `low_stock_threshold` (výchozí 5 tablet) — nezávislá na stávající "končí balení" notifikaci z M4 (ta je o rozvrhu balení, tahle o reálné fyzické zásobě); notifikuje jednou, znovu se vyzbrojí až po ručním nastavení skladu
+- [x] Actionable tlačítka "Vzal(a) jsem" (potvrdí dávku) a "Odložit" (odloží nag o `escalation_repeat_minutes`, nic nepotvrzuje ani neoznačuje jako vynechané) na denní připomínce i eskalaci — `notify.send_message` `data.actions` + sdílený listener na `mobile_app_notification_action`
+- [ ] **Nedokončeno:** živé ověření na reálném telefonu s Home Assistant Companion app — zatím jen standalone simulace logiky (decrement guard, notify-once/re-arm, snooze okno), stejně jako u M4
 
 ### v2.0.0 — Budoucí rozšíření (mimo současný rozsah)
 - [ ] Vlastní Lovelace karta (JS) — gauge/vizualizace na míru místo standardních karet
