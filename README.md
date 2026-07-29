@@ -23,20 +23,28 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
 3. Install **Perioder** and restart Home Assistant.
 4. Settings > Devices & Services > Add Integration > **Perioder**.
 
-## First use / testing (v0.9.0)
+## First use / testing (v0.9.3)
 
 1. During setup, name it exactly **Test** (this becomes the device name and
    determines entity IDs - the ready-made dashboard below assumes this name).
    If you want to test the daily reminder, pick a **Your own notify device**
    too (any `mobile_app` device) - without one, the reminder/escalation has
    nowhere to send to and silently does nothing (a debug log line only).
-2. Add a full test dashboard in one go: Settings > Dashboards > Add Dashboard >
+2. Install the **Atomic Calendar Revive** card first (HACS > Frontend >
+   search "Atomic Calendar Revive" > Install > reload the browser,
+   Ctrl+Shift+R) - `dashboard_test.yaml`'s two calendar cards use it instead
+   of the built-in `type: calendar` card, because the built-in one has no
+   way to fix its month-grid row height when a multi-day event's label gets
+   clipped (found live, v0.9.1/v0.9.2). It's the one non-native piece of
+   this dashboard; every control/sensor card is still a plain entity the
+   integration provides itself, no helpers or scripts.
+3. Add a full test dashboard in one go: Settings > Dashboards > Add Dashboard >
    "New dashboard from scratch" > open it > pencil icon (Edit Dashboard) >
    three-dot menu > "Edit in YAML" > paste the contents of `dashboard_test.yaml`
-   > Save. No helpers or scripts needed - every control is a native entity
-   the integration provides itself. (`lovelace_example.yaml` is the same
-   sensor cards as a single card, for dropping into a dashboard you already have.)
-3. From the dashboard: click the date entity and pick a date (today, or
+   > Save. (`lovelace_example.yaml` is the same sensor cards as a single
+   card, for dropping into a dashboard you already have - it doesn't include
+   the calendar cards, so it doesn't need Atomic Calendar Revive.)
+4. From the dashboard: click the date entity and pick a date (today, or
    earlier if you're only entering it the next day) - that logs the period
    start immediately, no separate confirm step. The PMS dropdown forces the
    PMS window on/off/auto for testing without waiting for the real date.
@@ -44,36 +52,36 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
    real last day of bleeding, inclusive) - the calendar's period block for
    that cycle then shows the real span instead of the `period_duration`
    estimate. It resets itself the next time you log a new period start.
-4. To test contraception: call `perioder.start_new_pack` once (Developer
+5. To test contraception: call `perioder.start_new_pack` once (Developer
    Tools > Actions) to set a pack start date - after that, `sensor.*_contraception_status`
    shows `pending`/`taken`/`missed`/`paused`/`inactive` for today, and pressing
    `button.*_confirm_pill_taken` logs today's dose (same as `perioder.log_pill_taken`).
-5. The calendar card shows predicted periods/fertile windows/pack-pauses,
+6. The calendar card shows predicted periods/fertile windows/pack-pauses,
    plus every logged pill confirmation as its own event - open one to see
    how many minutes early/late it was confirmed vs. the daily reminder time.
-6. To test the reminder/escalation: use `perioder.update_settings` to set
+7. To test the reminder/escalation: use `perioder.update_settings` to set
    `reminder_time` a couple of minutes from now (and optionally lower
    `escalation_grace_minutes`) - a check runs every 15 minutes, so give it
    at least one tick past your chosen time. Leave the dose unconfirmed to
    see the missed-dose notification and escalation; press the button to see
    it stop. `switch.*_pause_notifications` mutes all of this without losing
    any data.
-7. Settings > Devices & Services > Perioder > Configure lets you edit settings
+8. Settings > Devices & Services > Perioder > Configure lets you edit settings
    and add supporters (notification target, categories, detail level) - only
    reachable by an HA administrator, by design. `perioder.update_settings`
    does the same thing for settings from an automation/voice/NFC.
-8. The symptom buttons log a timestamped entry each press;
+9. The symptom buttons log a timestamped entry each press;
    `sensor.*_last_symptom` shows the most recent one. `perioder.export_symptom_log`
    writes the full history to a CSV under Home Assistant's `www/` folder.
-9. The shared calendar shows only generic "Citlivé období" blocks - which
-   block types it reflects at all is the `shared_calendar_categories`
-   setting (defaults to just periods).
-10. `number.*_pills_in_stock` is a real, settable count of tablets at home -
+10. The shared calendar shows only generic "Citlivé období" blocks - which
+    block types it reflects at all is the `shared_calendar_categories`
+    setting (defaults to just periods).
+11. `number.*_pills_in_stock` is a real, settable count of tablets at home -
     set it after buying more (or via `perioder.set_pills_in_stock`); each
     confirmed dose decrements it by one. Once it drops to or below
     `low_stock_threshold` (default 5), you and subscribed supporters get
     warned once - separate from the pack-days-remaining warning above.
-11. On a phone with the Home Assistant Companion app, the reminder and
+12. On a phone with the Home Assistant Companion app, the reminder and
     escalation notifications now carry two buttons: "Vzal(a) jsem" confirms
     today's dose without opening the app; "Odložit" postpones the nag by
     `escalation_repeat_minutes` without marking anything taken or missed.
@@ -86,7 +94,7 @@ command/NFC tag? `perioder.log_period_start`, `perioder.log_period_end`,
 `perioder.export_symptom_log`, and `perioder.set_pills_in_stock` all exist
 and do exactly the same thing as the matching entities/Options Flow.
 
-## Current scope (v0.9.0)
+## Current scope (v0.9.3)
 
 - Config + options flow (settings, supporter management), plus
   `perioder.update_settings` for changing settings outside the flow -
@@ -114,7 +122,7 @@ and do exactly the same thing as the matching entities/Options Flow.
   blocks with no detail, for exporting to a shared family calendar -
   which block types show up at all is configurable).
 - Notifications: daily contraception reminder + escalation to your own
-  device (with actionable "Vzal(a) jsem"/"Odložit" buttons, v0.9.0), a
+  device (with actionable "Vzal(a) jsem"/"Odložit" buttons, v0.8.0), a
   missed-dose alert to subscribed supporters (with a fertile-window
   heads-up folded in), a one-shot "pack running low" notice (current pack's
   active days ending soon) and a separate one-shot "low stock" notice
@@ -130,7 +138,7 @@ Not yet implemented: `pms`/`period`/`fertility` as their own
 transition-triggered supporter notifications (e.g. "PMS window just
 started"), and history/trend graph cards (the sensors have the needed
 data, no graph card is wired into `dashboard_test.yaml` yet). The
-notification dispatch code (including the new v0.9.0 actionable buttons)
+notification dispatch code (including the v0.8.0 actionable buttons)
 also hasn't been exercised against a live Home Assistant instance yet -
 only its decision logic has been verified standalone; please report if a
 notification doesn't arrive, or if the "Vzal(a) jsem"/"Odložit" buttons
@@ -169,9 +177,16 @@ not automated tests.
   any from a running instance.
 - The notification engine (M4) hasn't been confirmed working against a
   real `mobile_app` device end-to-end.
-- The v0.9.0 actionable notification buttons ("Vzal(a) jsem"/"Odložit")
+- The v0.8.0 actionable notification buttons ("Vzal(a) jsem"/"Odložit")
   depend on the Home Assistant Companion app version on the phone - not yet
   confirmed to actually render as tappable buttons on a real device.
+- `dashboard_test.yaml`'s calendar cards now need the third-party **Atomic
+  Calendar Revive** HACS card (v0.9.3) - the built-in `type: calendar` card
+  clipped multi-day event bars in its month view with no fix available
+  (`initial_view: listWeek` in v0.9.1 was rejected as unusable; `card-mod`
+  CSS in v0.9.2 didn't work). Confirmed via its GitHub repo that it's
+  actively maintained and takes a plain `calendar.*` entity, but the actual
+  fix (`cardHeight`) hasn't been checked against a running instance.
 - See "Not yet implemented" above and `ANALYZA-A-ROADMAP.md` for the rest.
 
 ## Project docs

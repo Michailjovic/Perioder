@@ -5,6 +5,36 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.3] - 2026-07-29
+
+Second attempt at the calendar-card fix - `card-mod` (v0.9.2) didn't work
+for the user, so this replaces the built-in calendar card with a
+third-party one instead of fighting the built-in one's CSS.
+
+### Changed
+
+- `dashboard_test.yaml`'s two calendar cards are now
+  `custom:atomic-calendar-revive` (HACS, actively maintained -
+  [totaldebug/atomic-calendar-revive](https://github.com/totaldebug/atomic-calendar-revive),
+  654 stars, latest release v10.3.1) instead of the built-in `type:
+  calendar`. It takes any `calendar.*` entity the same way the built-in
+  card does (`entities: [{entity: calendar.test_cycle_calendar}]`) - it's
+  documented around Google Calendar/CalDav but the config just points at a
+  standard HA calendar-domain entity, same API either way. Configured with
+  `defaultMode: Calendar` (month grid, not the event-list mode) and an
+  explicit `cardHeight` (700px / 500px) - this card has a real height
+  option, unlike the built-in one, which was the actual missing piece.
+  Requires installing it via HACS > Frontend first (documented in the new
+  setup step 2). This is the one non-native-HA piece of the whole test
+  dashboard; everything else stays plain HA cards/entities.
+
+### Notes
+
+- Not yet verified live - confirmed via the project's GitHub page and docs
+  that it's maintained and takes a plain entity_id, but the actual
+  clipping fix (`cardHeight`) hasn't been checked against a running
+  instance.
+
 ## [0.9.2] - 2026-07-29
 
 Reverts the v0.9.1 fix - user rejected `listWeek` as unusable, wants the

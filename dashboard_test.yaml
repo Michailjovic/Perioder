@@ -1,11 +1,17 @@
-# Perioder v0.9.2 - test dashboard (single VIEW, not a whole-dashboard file)
+# Perioder v0.9.3 - test dashboard (single VIEW, not a whole-dashboard file)
 #
 # Setup:
 #   1. Integration must be named exactly "Test" during setup.
-#   2. Settings > Dashboards > Add Dashboard > "New dashboard from scratch"
+#   2. The two calendar cards need the "Atomic Calendar Revive" custom card
+#      (HACS > Frontend > search "Atomic Calendar Revive" > Install > reload
+#      the browser, Ctrl+Shift+R). This is the ONE piece of this dashboard
+#      that isn't a plain native HA card - the built-in calendar card has no
+#      way to fix its month-grid row height when a multi-day event's label
+#      gets clipped, see the comment above the calendar cards below.
+#   3. Settings > Dashboards > Add Dashboard > "New dashboard from scratch"
 #      (any title) > open it > pencil icon (top right) to enter edit mode
 #      > three-dot menu > "Edit in YAML".
-#   3. That editor is for the CURRENT VIEW only - it starts with something
+#   4. That editor is for the CURRENT VIEW only - it starts with something
 #      like `title: Home` / `cards: []`. Delete all of it and paste this
 #      whole file in its place (do NOT wrap it in an extra `views:` key -
 #      that caused the blank-page issue). Save.
@@ -24,7 +30,7 @@ path: perioder-test
 cards:
   - type: markdown
     content: >-
-      **Perioder v0.9.2 - test dashboard.** Klikni na "Zapsat začátek
+      **Perioder v0.9.3 - test dashboard.** Klikni na "Zapsat začátek
       periody" a vyber datum - i zpětně, pokud se to dozvíš až druhý den.
       "PMS přebití" testuje PMS okno bez čekání na skutečné datum. Antikoncepci
       nejdřív jednou nastartuj přes `perioder.start_new_pack` (Developer
@@ -121,30 +127,29 @@ cards:
       {% endfor %}
       {% endif %}
 
-  # Měsíční mřížka (dayGridMonth, výchozí initial_view) má v HA pevnou výšku
-  # řádku - u vícedenních bloků (perioda, plodné dny) se popisek/pruh mohl
-  # vykreslit mimo viditelnou oblast buňky (nahlášeno živě 2026-07-29).
-  # Řešení beze změny pohledu vyžaduje card-mod (HACS > Frontend > "card-mod")
-  # - vynucuje CSS na vnitřní kalendářový element. NEOVĚŘENO živě - pokud
-  # min-height níže nic neudělá, zkus v prohlížeči otevřít DevTools na
-  # kartě kalendáře a podívat se, jaký element/třídu FullCalendar v tvé verzi
-  # HA skutečně používá (může se lišit release od release).
-  - type: calendar
-    title: Kalendář cyklu (detailní)
+  # Vestavěná HA kalendářová karta (type: calendar) nemá žádnou YAML/card-mod
+  # cestu, jak spolehlivě zvětšit výšku řádků měsíční mřížky - card-mod na
+  # ni vyzkoušený nepomohl (nahlášeno živě 2026-07-29). Použit "Atomic
+  # Calendar Revive" (HACS > Frontend > vyhledej "Atomic Calendar Revive" >
+  # Install > reload prohlížeče, Ctrl+Shift+R). Bere libovolnou
+  # calendar.* entitu stejně jako vestavěná karta (entities: [{entity: ...}]),
+  # jen navíc má `cardHeight` - žádný CSS hack. NEOVĚŘENO živě.
+  - type: custom:atomic-calendar-revive
+    name: Kalendář cyklu (detailní)
     entities:
-      - calendar.test_cycle_calendar
-    card_mod:
-      style: |
-        ha-full-calendar {
-          min-height: 700px;
-        }
+      - entity: calendar.test_cycle_calendar
+    defaultMode: Calendar
+    enableModeChange: false
+    showMultiDay: true
+    firstDayOfWeek: 1
+    cardHeight: "700px"
 
-  - type: calendar
-    title: Sdílený kalendář (bez detailu)
+  - type: custom:atomic-calendar-revive
+    name: Sdílený kalendář (bez detailu)
     entities:
-      - calendar.test_shared_calendar
-    card_mod:
-      style: |
-        ha-full-calendar {
-          min-height: 500px;
-        }
+      - entity: calendar.test_shared_calendar
+    defaultMode: Calendar
+    enableModeChange: false
+    showMultiDay: true
+    firstDayOfWeek: 1
+    cardHeight: "500px"
