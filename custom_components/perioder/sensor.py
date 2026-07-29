@@ -177,6 +177,19 @@ class ContraceptionStatusSensor(_PerioderSensorBase):
             reminder_time=reminder_time,
         )
 
+    @property
+    def extra_state_attributes(self) -> dict[str, str | int | None]:
+        settings = get_settings(self._entry)
+        today_entry = self._data.contraception["pill_log"].get(date.today().isoformat())
+        if not today_entry or not today_entry.get("logged_at"):
+            return {}
+        logged_at = datetime.fromisoformat(today_entry["logged_at"])
+        reminder_time = time.fromisoformat(settings["reminder_time"])
+        return {
+            "logged_at": today_entry["logged_at"],
+            "delay_minutes": pm.delay_minutes(logged_at, date.today(), reminder_time),
+        }
+
 
 class PackDaysRemainingSensor(_PerioderSensorBase):
     """Days left in the current pack's active-pill part (0 on the last pill day)."""

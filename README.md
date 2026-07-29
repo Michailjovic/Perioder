@@ -13,7 +13,7 @@ Home Assistant custom integration for menstrual cycle and contraception tracking
 3. Install **Perioder** and restart Home Assistant.
 4. Settings > Devices & Services > Add Integration > **Perioder**.
 
-## First use / testing (v0.2.0)
+## First use / testing (v0.3.0)
 
 1. During setup, name it exactly **Test** (this becomes the device name and
    determines entity IDs - the ready-made dashboard below assumes this name).
@@ -32,19 +32,24 @@ Home Assistant custom integration for menstrual cycle and contraception tracking
    Tools > Actions) to set a pack start date - after that, `sensor.*_contraception_status`
    shows `pending`/`taken`/`missed`/`paused`/`inactive` for today, and pressing
    `button.*_confirm_pill_taken` logs today's dose (same as `perioder.log_pill_taken`).
-5. Settings > Devices & Services > Perioder > Configure lets you edit settings
+5. The calendar card shows predicted periods/fertile windows/pack-pauses,
+   plus every logged pill confirmation as its own event - open one to see
+   how many minutes early/late it was confirmed vs. the daily reminder time.
+6. Settings > Devices & Services > Perioder > Configure lets you edit settings
    and add supporters (notification target, categories, detail level) - only
-   reachable by an HA administrator, by design.
+   reachable by an HA administrator, by design. `perioder.update_settings`
+   does the same thing for settings from an automation/voice/NFC.
 
 Prefer Developer Tools > Actions, or calling this from an automation/voice
 command/NFC tag? `perioder.log_period_start`, `perioder.set_pms_override`,
-`perioder.log_pill_taken`, `perioder.start_new_pack`, and
-`perioder.set_contraception_active` all exist and do exactly the same thing
-as the matching entities.
+`perioder.log_pill_taken`, `perioder.start_new_pack`,
+`perioder.set_contraception_active`, and `perioder.update_settings` all
+exist and do exactly the same thing as the matching entities/Options Flow.
 
-## Current scope (v0.2.0)
+## Current scope (v0.3.0)
 
-- Config + options flow (settings, supporter management).
+- Config + options flow (settings, supporter management), plus
+  `perioder.update_settings` for changing settings outside the flow.
 - Settings/supporters live in the config entry; runtime state (cycle,
   contraception, symptoms) lives in a separate per-entry Store.
 - Sensors: cycle day, phase, fertility, next period, contraception status
@@ -54,15 +59,18 @@ as the matching entities.
 - Date entity: log/backdate the period start directly from the UI.
 - Select entity: PMS override (auto / active / inactive).
 - Button entity: confirm today's pill taken.
+- Calendar entity: predicted period/fertile/pack-pause blocks (forward and
+  backward), plus every logged pill confirmation as an event, with the
+  delay vs. the reminder time in its description.
 - Services: `log_period_start`, `set_pms_override`, `log_pill_taken`,
-  `start_new_pack`, `set_contraception_active` (same effect as the entities
-  above, for automations/voice/NFC).
+  `start_new_pack`, `set_contraception_active`, `update_settings` (same
+  effect as the entities/Options Flow above, for automations/voice/NFC).
 
 Not yet implemented: the daily contraception reminder + escalation
-notification, the prediction calendar, symptom logging, and the supporter
-notification engine. The reminder/escalation piece was deliberately deferred
-alongside the supporter notification engine (M4) - both need the same
-underlying actionable-notification plumbing. See `CHANGELOG.md` and
+notification, symptom logging, and the supporter notification engine. The
+reminder/escalation piece was deliberately deferred alongside the supporter
+notification engine (M4) - both need the same underlying
+actionable-notification plumbing. See `CHANGELOG.md` and
 `ANALYZA-A-ROADMAP.md`.
 
 ## Project docs

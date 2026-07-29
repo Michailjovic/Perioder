@@ -24,12 +24,17 @@ from .const import STORAGE_KEY_PREFIX, STORAGE_VERSION
 _LOGGER = logging.getLogger(__name__)
 
 
+class PillLogEntry(TypedDict):
+    status: str  # "taken" | "missed"
+    logged_at: str | None  # full isoformat datetime of the confirmation, if known
+
+
 class ContraceptionState(TypedDict):
     """Current contraception pack state."""
 
     active: bool
     pack_start_date: str | None
-    pill_log: dict[str, str]  # date_str -> "taken" | "missed"
+    pill_log: dict[str, PillLogEntry]  # date_str -> {"status", "logged_at"}
 
 
 class PerioderStorageData(TypedDict):
@@ -79,6 +84,15 @@ class PerioderData:
             data.setdefault(key, value)
         for key, value in defaults["contraception"].items():
             data["contraception"].setdefault(key, value)
+
+        # v0.2.0 stored pill_log values as a plain "taken"/"missed" string;
+        # v0.3.0 needs the confirmation time too (to show delay vs.
+        # reminder_time in the calendar), so normalize old entries in place.
+        pill_log = data["contraception"]["pill_log"]
+        for log_date, entry in list(pill_log.items()):
+            if isinstance(entry, str):
+                pill_log[log_date] = {"status": entry, "logged_at": None}
+
         self.data = data
 
     async def async_save(self) -> None:
@@ -151,12 +165,18 @@ class PerioderData:
 
     async def async_log_pill_taken(self, log_date: date) -> None:
         if self.data:
-            self.data["contraception"]["pill_log"][log_date.isoformat()] = "taken"
+            self.data["contraception"]["pill_log"][log_date.isoformat()] = {
+                "status": "taken",
+                "logged_at": datetime.now().isoformat(),
+            }
             await self.async_save()
 
     async def async_log_pill_missed(self, log_date: date) -> None:
         if self.data:
-            self.data["contraception"]["pill_log"][log_date.isoformat()] = "missed"
+            self.data["contraception"]["pill_log"][log_date.isoformat()] = {
+                "status": "missed",
+                "logged_at": datetime.now().isoformat(),
+            }
             await self.async_save()
 
     # -- symptoms -----------------------------------------------------------

@@ -127,4 +127,5 @@ class PillTakenTodayBinarySensor(_PerioderBinarySensorBase):
         contraception = self._data.contraception
         if not contraception["active"]:
             return None
-        return contraception["pill_log"].get(date.today().isoformat()) == CONTRACEPTION_TAKEN
+        entry = contraception["pill_log"].get(date.today().isoformat())
+        return entry is not None and entry["status"] == CONTRACEPTION_TAKEN

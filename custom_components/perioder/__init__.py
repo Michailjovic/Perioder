@@ -2,10 +2,15 @@
 
 v0.1.x covered the cycle/fertility/PMS foundation: read-only cycle sensors,
 a settable `date` entity to log/backdate the period start, and a `select`
-entity for the PMS override. v0.2.0 (M2) adds the contraception core on top:
+entity for the PMS override. v0.2.0 (M2) added the contraception core:
 pack-day status, a "Confirm pill taken" button, and the matching services.
-The daily reminder + escalation notification (also part of M2 on the
-roadmap) is deferred to M4, where it's built together with the supporter
+v0.3.0 (M3) closes out the cycle/fertility milestone: a `calendar` entity
+predicting periods/fertile windows/pack-pauses and showing logged pill
+confirmations (with delay vs. the reminder time), plus `update_settings` for
+editing settings outside of Options Flow (automations/voice/NFC).
+
+The daily reminder + escalation notification (also originally part of M2 on
+the roadmap) is deferred to M4, where it's built together with the supporter
 notification engine - both need the same underlying "send + track an
 actionable notification" plumbing, so building it twice didn't make sense.
 
@@ -28,7 +33,20 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import DOMAIN
+from .const import (
+    CONF_CYCLE_LENGTH,
+    CONF_GOAL,
+    CONF_PACK_SIZE,
+    CONF_PAUSE_DAYS,
+    CONF_PERIOD_DURATION,
+    CONF_PMS_WINDOW_DAYS,
+    CONF_REGIMEN_TYPE,
+    CONF_REMINDER_TIME,
+    DOMAIN,
+    GOALS,
+    REGIMEN_TYPES,
+)
+from .settings import get_settings
 from .storage import PerioderData
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,6 +57,7 @@ PLATFORMS: list[Platform] = [
     Platform.DATE,
     Platform.SELECT,
     Platform.BUTTON,
+    Platform.CALENDAR,
 ]
 
 SERVICE_LOG_PERIOD_START = "log_period_start"
@@ -46,6 +65,7 @@ SERVICE_SET_PMS_OVERRIDE = "set_pms_override"
 SERVICE_LOG_PILL_TAKEN = "log_pill_taken"
 SERVICE_START_NEW_PACK = "start_new_pack"
 SERVICE_SET_CONTRACEPTION_ACTIVE = "set_contraception_active"
+SERVICE_UPDATE_SETTINGS = "update_settings"
 
 _PMS_OVERRIDE_VALUES = {"auto": None, "active": True, "inactive": False}
 _ALL_SERVICES = (
@@ -54,6 +74,7 @@ _ALL_SERVICES = (
     SERVICE_LOG_PILL_TAKEN,
     SERVICE_START_NEW_PACK,
     SERVICE_SET_CONTRACEPTION_ACTIVE,
+    SERVICE_UPDATE_SETTINGS,
 )
 
 _ENTRY_TARGET_SCHEMA = {
@@ -71,6 +92,14 @@ def _get_entry_data(hass: HomeAssistant, config_entry_id: str) -> PerioderData:
     if entry is None or entry.entry_id not in hass.data.get(DOMAIN, {}):
         raise ValueError(f"Unknown Perioder cycle owner: {config_entry_id}")
     return hass.data[DOMAIN][entry.entry_id]
+
+
+def _get_entry(hass: HomeAssistant, config_entry_id: str) -> ConfigEntry:
+    """Resolve a config_entry_id from a service call to its ConfigEntry."""
+    entry = hass.config_entries.async_get_entry(config_entry_id)
+    if entry is None or entry.entry_id not in hass.data.get(DOMAIN, {}):
+        raise ValueError(f"Unknown Perioder cycle owner: {config_entry_id}")
+    return entry
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -173,4 +202,46 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_SET_CONTRACEPTION_ACTIVE,
         handle_set_contraception_active,
         schema=vol.Schema({**_ENTRY_TARGET_SCHEMA, vol.Required("active"): cv.boolean}),
+    )
+
+    async def handle_update_settings(call: ServiceCall) -> None:
+        entry = _get_entry(hass, call.data["config_entry_id"])
+        updates = {}
+        for key, value in call.data.items():
+            if key == "config_entry_id" or value is None:
+                continue
+            # cv.time validates the input but yields a datetime.time object;
+            # settings.py/pill_math.py/calendar.py all expect an isoformat
+            # string here (same shape TimeSelector produces in Config/Options
+            # Flow), and a bare time object isn't JSON-serializable for the
+            # config entry store anyway.
+            if key == CONF_REMINDER_TIME:
+                value = value.isoformat()
+            updates[key] = value
+        if not updates:
+            return
+        merged = {**get_settings(entry), **updates}
+        if merged[CONF_CYCLE_LENGTH] <= merged[CONF_PERIOD_DURATION]:
+            raise ValueError("Cycle length must be longer than period duration")
+        base = dict(entry.options) if entry.options else dict(entry.data)
+        base.update(updates)
+        hass.config_entries.async_update_entry(entry, options=base)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_UPDATE_SETTINGS,
+        handle_update_settings,
+        schema=vol.Schema(
+            {
+                **_ENTRY_TARGET_SCHEMA,
+                vol.Optional(CONF_CYCLE_LENGTH): vol.All(vol.Coerce(int), vol.Range(min=15, max=60)),
+                vol.Optional(CONF_PERIOD_DURATION): vol.All(vol.Coerce(int), vol.Range(min=1, max=14)),
+                vol.Optional(CONF_GOAL): vol.In(GOALS),
+                vol.Optional(CONF_PMS_WINDOW_DAYS): vol.All(vol.Coerce(int), vol.Range(min=0, max=10)),
+                vol.Optional(CONF_REGIMEN_TYPE): vol.In(REGIMEN_TYPES),
+                vol.Optional(CONF_PACK_SIZE): vol.All(vol.Coerce(int), vol.Range(min=1, max=90)),
+                vol.Optional(CONF_PAUSE_DAYS): vol.All(vol.Coerce(int), vol.Range(min=0, max=30)),
+                vol.Optional(CONF_REMINDER_TIME): cv.time,
+            }
+        ),
     )

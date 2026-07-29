@@ -25,7 +25,7 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - Nastavitelná `cycle_length` a `period_duration`, žádné dopočítávání z historie ve výchozím stavu — nastavení má přednost.
 - Volitelně navíc BBT/CM/LH pro symptothermální zpřesnění (pozdější fáze, není nutné pro MVP).
 - Kalendář (`calendar.perioder`) s výhledem 3 měsíce dopředu — perioda + fertilní okno.
-- **(nápad z 2026-07-29, k rozpracování)** Kalendář aktuálního cyklu by měl zobrazovat i historii antikoncepce po dnech — kdy byl prášek potvrzeně vzatý (`pill_log`), a vizuálně odlišit dny, kdy bylo potvrzení opožděné oproti `reminder_time` (ne jen binárně vzato/nevzato, ale i míru zpoždění). Pravděpodobně `calendar.py` event description/vlastní atributy per den, nebo doplňková karta vedle kalendáře — rozhodnout při implementaci M3/M5.
+- ✅ **(nápad z 2026-07-29, implementováno v0.3.0)** Kalendář zobrazuje historii antikoncepce po dnech — kdy byl prášek potvrzeně vzatý/vynechaný (`pill_log`), a v popisu události i míru zpoždění oproti `reminder_time` (v minutách). Nezobrazují se odhady za budoucí/nezalogované dny, jen skutečně zalogované záznamy.
 - Cíl (`goal`) ovlivňuje tón a typ notifikací.
 
 ### 2.2 PMS / emoční okno
@@ -161,12 +161,12 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - [ ] Denní připomínka + eskalace (timer helper + actionable notification) — přesunuto k M4, sdílí infrastrukturu s podporovatelským notifikačním enginem (viz CHANGELOG v0.2.0)
 - [ ] Ranní "vynecháno" souhrn + propojení s fertilním oknem — bude řešeno spolu s M4
 
-### M3 — Cyklus, plodnost a PMS okno (částečně hotovo v v0.1.0)
+### M3 — Cyklus, plodnost a PMS okno ✅ (v0.3.0)
 - [x] `sensor.py`: cycle_day, phase, fertility, next_period
 - [x] `binary_sensor.py`: period_active, pms_active (s ručním přebitím)
 - [x] Služby: `log_period_start`, `set_pms_override`
-- [ ] `calendar.py` — detailní predikce 3 měsíce dopředu, včetně zobrazení `pill_log` (vzato/vynecháno/opožděno) v aktuálním cyklu (viz nápad v 2.1)
-- [ ] Služba: `update_settings` (zatím se nastavení mění jen přes Options Flow)
+- [x] `calendar.py` — predikce period/plodných dní/pauz balení (dopředu i zpětně), plus zobrazení logovaných `pill_log` záznamů (vzato/vynecháno) s výpočtem zpoždění oproti `reminder_time` (nápad z 2026-07-29, viz 2.1 a CHANGELOG v0.3.0)
+- [x] Služba: `update_settings`
 
 ### M4 — Podporovatelé a notifikace
 - [x] Datový model podporovatelů (cíl, kategorie, detail úroveň) — hotovo už v Options Flow (v0.1.1)

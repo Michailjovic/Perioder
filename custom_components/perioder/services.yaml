@@ -112,3 +112,92 @@ set_contraception_active:
       example: true
       selector:
         boolean:
+
+update_settings:
+  name: Update settings
+  description: >-
+    Update one or more settings for a cycle owner outside of Options Flow -
+    handy for automations/voice/NFC. Only the fields you provide are
+    changed; everything else keeps its current value. Same effect as
+    "Edit settings" in Settings > Devices & Services > Perioder > Configure.
+  fields:
+    config_entry_id:
+      name: Cycle owner
+      description: Which Perioder cycle owner this applies to.
+      required: true
+      selector:
+        config_entry:
+          integration: perioder
+    cycle_length:
+      name: Cycle length
+      description: In days. Must stay longer than period duration.
+      example: 28
+      selector:
+        number:
+          min: 15
+          max: 60
+          unit_of_measurement: d
+    period_duration:
+      name: Period duration
+      description: In days. Must stay shorter than cycle length.
+      example: 5
+      selector:
+        number:
+          min: 1
+          max: 14
+          unit_of_measurement: d
+    goal:
+      name: Goal
+      selector:
+        select:
+          options:
+            - label: Just tracking
+              value: "track"
+            - label: Avoiding pregnancy
+              value: "avoid"
+            - label: Planning pregnancy
+              value: "plan"
+    pms_window_days:
+      name: PMS window
+      description: Days before the predicted period.
+      example: 4
+      selector:
+        number:
+          min: 0
+          max: 10
+          unit_of_measurement: d
+    regimen_type:
+      name: Contraception regimen
+      selector:
+        select:
+          options:
+            - label: 21 active days + 7 pause days
+              value: "21_7"
+            - label: 24 active days + 4 pause days
+              value: "24_4"
+            - label: Continuous (no pause)
+              value: "continuous"
+            - label: Custom
+              value: "custom"
+    pack_size:
+      name: Pack size
+      description: In days. Only used for the "custom" regimen.
+      example: 21
+      selector:
+        number:
+          min: 1
+          max: 90
+          unit_of_measurement: d
+    pause_days:
+      name: Pause days
+      description: Only used for the "custom" regimen.
+      example: 7
+      selector:
+        number:
+          min: 0
+          max: 30
+          unit_of_measurement: d
+    reminder_time:
+      name: Daily contraception reminder time
+      selector:
+        time:

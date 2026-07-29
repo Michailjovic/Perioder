@@ -55,7 +55,7 @@ def pill_status(
     today: date,
     pack_size: int,
     pause_days: int,
-    pill_log: dict[str, str],
+    pill_log: dict[str, dict[str, str | None]],
     now: datetime,
     reminder_time: time,
     grace_minutes: int = 60,
@@ -72,6 +72,10 @@ def pill_status(
       grace period has already passed.
     - pending: today is a pill day, not confirmed yet, still within the
       grace period after `reminder_time` (or before it).
+
+    `pill_log` entries are `{"status": "taken"|"missed", "logged_at": <isoformat datetime or None>}`
+    (see storage.py); `logged_at` isn't used for the status itself, only for
+    `delay_minutes()` below.
     """
     if not active or pack_start_date is None:
         return CONTRACEPTION_INACTIVE
@@ -81,12 +85,25 @@ def pill_status(
         return CONTRACEPTION_PAUSED
 
     logged = pill_log.get(today.isoformat())
-    if logged == "taken":
-        return CONTRACEPTION_TAKEN
-    if logged == "missed":
-        return CONTRACEPTION_MISSED
+    if logged is not None:
+        status = logged["status"]
+        if status == "taken":
+            return CONTRACEPTION_TAKEN
+        if status == "missed":
+            return CONTRACEPTION_MISSED
 
     grace_end = datetime.combine(today, reminder_time) + timedelta(minutes=grace_minutes)
     if now >= grace_end:
         return CONTRACEPTION_MISSED
     return CONTRACEPTION_PENDING
+
+
+def delay_minutes(logged_at: datetime, log_date: date, reminder_time: time) -> int:
+    """Minutes between the daily `reminder_time` and the actual confirmation.
+
+    Positive = confirmed after the reminder (late), negative = before it
+    (early/on time). Used to show "how delayed" a confirmed dose was, e.g.
+    in the calendar (see ANALYZA-A-ROADMAP.md, section 2.1 - added 2026-07-29).
+    """
+    reminder_dt = datetime.combine(log_date, reminder_time)
+    return round((logged_at - reminder_dt).total_seconds() / 60)

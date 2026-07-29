@@ -5,6 +5,46 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.3.0] - 2026-07-29
+
+M3 completed (except the notification-facing pieces, deferred to M4) -
+`calendar.py` and `perioder.update_settings`.
+
+### Added
+
+- `calendar.cycle_calendar` (one per cycle owner): predicted period blocks
+  and fertile-window blocks projected both forward and backward from
+  `last_period_start` to cover whatever range Home Assistant queries, plus
+  predicted pack-pause blocks when the regimen has pause days. On top of the
+  predictions, every *logged* `pill_log` entry (taken/missed) shows up as
+  its own single-day event, with the confirmation delay vs. `reminder_time`
+  in the description - directly the "see which dates the pill was actually
+  taken, and how delayed" idea noted in `ANALYZA-A-ROADMAP.md` section 2.1
+  on 2026-07-29. Deliberately does not invent an event for every
+  future/unlogged pill day, to avoid a wall of one-event-per-day noise.
+- `perioder.update_settings` service: change one or more settings
+  (cycle_length, period_duration, goal, pms_window_days, regimen_type,
+  pack_size, pause_days, reminder_time) for a cycle owner without going
+  through Options Flow - only the fields provided are changed. Applies
+  immediately without a reload: sensors already read settings straight from
+  the config entry on every access (see settings.py), and
+  `async_update_entry` mutates that same entry object in place.
+- `dashboard_test.yaml` now includes a calendar card.
+
+### Changed
+
+- **Storage schema**: `pill_log` entries changed from a plain
+  `"taken"`/`"missed"` string to `{"status": ..., "logged_at": <isoformat
+  datetime or None>}`, so the actual confirmation time is available (needed
+  for the calendar's delay display). Existing v0.2.0 data is normalized to
+  the new shape automatically on load - no manual migration needed, no data
+  lost (old entries just get `logged_at: None`, so they won't show a delay
+  figure, only the taken/missed marker).
+- `pill_math.pill_status()` updated for the new `pill_log` shape; added
+  `pill_math.delay_minutes()`.
+- `sensor.contraception_status` now exposes `logged_at`/`delay_minutes` as
+  extra state attributes when today's dose has been confirmed.
+
 ## [0.2.0] - 2026-07-29
 
 M2 - contraception core. First release that does something with contraception
