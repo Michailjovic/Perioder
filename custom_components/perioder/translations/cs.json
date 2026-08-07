@@ -117,6 +117,7 @@
     },
     "shared_calendar_category": {
       "options": {
+        "pms": "PMS okno",
         "period": "Perioda",
         "fertile": "Plodné okno",
         "pause": "Pauza balení"

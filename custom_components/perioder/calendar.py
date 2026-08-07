@@ -41,6 +41,7 @@ from .const import (
     SHARED_CALENDAR_FERTILE,
     SHARED_CALENDAR_PAUSE,
     SHARED_CALENDAR_PERIOD,
+    SHARED_CALENDAR_PMS,
 )
 from .settings import get_settings
 from .storage import PerioderData
@@ -52,15 +53,25 @@ def _period_and_fertile_blocks(
     last_start: date,
     cycle_length: int,
     period_duration: int,
+    pms_window_days: int,
     start_date: date,
     end_date: date,
     *,
     real_period_end: date | None = None,
 ) -> list[tuple[str, CalendarEvent]]:
-    """Predicted period + fertile-window blocks covering [start_date, end_date].
+    """Predicted PMS + period + fertile-window blocks covering [start_date, end_date].
 
-    Returns (kind, event) pairs, kind in {"period", "fertile"}, so callers can
-    filter and/or relabel per calendar (detailed vs. shared).
+    Returns (kind, event) pairs, kind in {"pms", "period", "fertile"}, so
+    callers can filter and/or relabel per calendar (detailed vs. shared).
+
+    The PMS block for a given cycle sits *before* that cycle's period block -
+    it's `cm.pms_window(cycle_start, pms_window_days)`, the same window
+    `binary_sensor.*_pms_active` already uses - not the period block itself.
+    Previously this function only emitted "period"/"fertile", so neither
+    calendar entity ever showed PMS at all, which is why the shared
+    calendar's generic "Citlivé období" block only ever lined up with the
+    period dates. `pms_window_days` <= 0 disables the block entirely (same
+    convention as `cm.is_pms_active`).
 
     `real_period_end` (v0.9.0) is the confirmed, logged last day of bleeding
     for the *current* period (the one starting exactly at `last_start`) -
@@ -78,6 +89,12 @@ def _period_and_fertile_blocks(
 
     cycle_start = first_cycle_start
     while cycle_start <= end_date:
+        if pms_window_days > 0:
+            pms_start, pms_end_inclusive = cm.pms_window(cycle_start, pms_window_days)
+            pms_end = pms_end_inclusive + timedelta(days=1)
+            if pms_end > start_date and pms_start < end_date:
+                blocks.append(("pms", CalendarEvent(start=pms_start, end=pms_end, summary="PMS")))
+
         if cycle_start == last_start and real_period_end is not None and real_period_end >= cycle_start:
             period_end = real_period_end + timedelta(days=1)
             period_summary = "Perioda (potvrzený konec)"
@@ -231,6 +248,7 @@ class PerioderCalendar(CalendarEntity):
                     last_start,
                     settings["cycle_length"],
                     settings["period_duration"],
+                    settings["pms_window_days"],
                     start_date,
                     end_date,
                     real_period_end=self._data.last_period_end,
@@ -299,12 +317,17 @@ class PerioderSharedCalendar(CalendarEntity):
         blocks: list[tuple[str, CalendarEvent]] = []
 
         last_start = self._data.last_period_start
-        if last_start is not None and (SHARED_CALENDAR_PERIOD in enabled or SHARED_CALENDAR_FERTILE in enabled):
+        if last_start is not None and (
+            SHARED_CALENDAR_PMS in enabled
+            or SHARED_CALENDAR_PERIOD in enabled
+            or SHARED_CALENDAR_FERTILE in enabled
+        ):
             blocks.extend(
                 _period_and_fertile_blocks(
                     last_start,
                     settings["cycle_length"],
                     settings["period_duration"],
+                    settings["pms_window_days"],
                     start_date,
                     end_date,
                     real_period_end=self._data.last_period_end,
@@ -322,7 +345,12 @@ class PerioderSharedCalendar(CalendarEntity):
                 _pause_blocks(pack_start, settings["pack_size"], settings["pause_days"], start_date, end_date)
             )
 
-        kind_to_category = {"period": SHARED_CALENDAR_PERIOD, "fertile": SHARED_CALENDAR_FERTILE, "pause": SHARED_CALENDAR_PAUSE}
+        kind_to_category = {
+            "pms": SHARED_CALENDAR_PMS,
+            "period": SHARED_CALENDAR_PERIOD,
+            "fertile": SHARED_CALENDAR_FERTILE,
+            "pause": SHARED_CALENDAR_PAUSE,
+        }
         events = [
             CalendarEvent(start=event.start, end=event.end, summary="Citlivé období")
             for kind, event in blocks

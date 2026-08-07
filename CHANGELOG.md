@@ -5,6 +5,29 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.4] - 2026-08-07
+
+### Fixed
+
+- `mobile_app_notification_action` listener in `__init__.py` is now decorated
+  with `@callback` instead of being a bare lambda. An undecorated listener is
+  dispatched by the event bus via a worker thread, and calling
+  `hass.async_create_task()` from there triggered HA's
+  "calls hass.async_create_task from a thread other than the event loop"
+  frame-helper warning every time a reminder/escalation notification action
+  button ("Vzal(a) jsem" / "Odložit") was tapped.
+- Both calendar entities (`cycle_calendar` and `shared_calendar`) never
+  generated a PMS block - `_period_and_fertile_blocks()` only ever emitted
+  "period"/"fertile", even though `pms_window_days` and
+  `binary_sensor.*_pms_active` already existed. In the shared calendar this
+  meant the generic "Citlivé období" block was always exactly the period
+  dates (the "PMS window" category in `shared_calendar_categories` had no
+  block type behind it at all). Added a `pms` block - `cm.pms_window()`
+  applied per-cycle, same window the binary sensor uses - to both calendar
+  entities. **Existing entries keep their current `shared_calendar_categories`
+  selection - add "PMS okno" via Options Flow > Upravit nastavení if you want
+  it to actually show up.**
+
 ## [0.9.3] - 2026-07-29
 
 Second attempt at the calendar-card fix - `card-mod` (v0.9.2) didn't work

@@ -58,10 +58,16 @@ DEFAULT_LOW_STOCK_THRESHOLD = 5
 # The cycle owner picks these (see ANALYZA-A-ROADMAP.md section 2.7); in this
 # project's admin-controlled model (section 2.5) that choice is still made
 # via Options Flow/update_settings like every other setting.
+SHARED_CALENDAR_PMS = "pms"
 SHARED_CALENDAR_PERIOD = "period"
 SHARED_CALENDAR_FERTILE = "fertile"
 SHARED_CALENDAR_PAUSE = "pause"
-SHARED_CALENDAR_CATEGORIES = [SHARED_CALENDAR_PERIOD, SHARED_CALENDAR_FERTILE, SHARED_CALENDAR_PAUSE]
+SHARED_CALENDAR_CATEGORIES = [
+    SHARED_CALENDAR_PMS,
+    SHARED_CALENDAR_PERIOD,
+    SHARED_CALENDAR_FERTILE,
+    SHARED_CALENDAR_PAUSE,
+]
 DEFAULT_SHARED_CALENDAR_CATEGORIES = [SHARED_CALENDAR_PERIOD]
 
 # Goals - what the cycle owner is currently using the tracking for.

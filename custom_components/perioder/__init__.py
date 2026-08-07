@@ -45,7 +45,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import Event, HomeAssistant, ServiceCall
+from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import slugify
@@ -174,9 +174,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _async_register_services(hass)
 
     if _ACTION_LISTENER_KEY not in hass.data:
+
+        @callback
+        def _handle_notification_action_event(event: Event) -> None:
+            # Must be @callback (not a bare lambda/plain function): an
+            # undecorated listener is dispatched by the event bus via
+            # hass.async_add_executor_job (a worker thread), and calling
+            # hass.async_create_task() from there trips the
+            # "calls hass.async_create_task from a thread other than the
+            # event loop" frame-helper warning. @callback tells HA this
+            # listener is safe to run inline on the event loop instead.
+            hass.async_create_task(_async_handle_notification_action(hass, event))
+
         hass.data[_ACTION_LISTENER_KEY] = hass.bus.async_listen(
             EVENT_MOBILE_APP_NOTIFICATION_ACTION,
-            lambda event: hass.async_create_task(_async_handle_notification_action(hass, event)),
+            _handle_notification_action_event,
         )
 
     return True
