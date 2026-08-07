@@ -10,7 +10,7 @@ ValueError for a future date before ever calling into storage.py).
 """
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from custom_components.perioder import pill_math as pm
 
@@ -34,6 +34,35 @@ def test_day_in_pack_wraps_to_next_cycle() -> None:
     start = date(2026, 7, 1)
     # 21 + 7 = 28-day full cycle - day 29 should wrap back to day 1.
     assert pm.day_in_pack(start, date(2026, 7, 29), PACK_SIZE, PAUSE_DAYS) == 1
+
+
+def test_current_pack_start_same_pack() -> None:
+    start = date(2026, 7, 1)
+    assert pm.current_pack_start(start, date(2026, 7, 1), PACK_SIZE, PAUSE_DAYS) == start
+    assert pm.current_pack_start(start, date(2026, 7, 28), PACK_SIZE, PAUSE_DAYS) == start
+
+
+def test_current_pack_start_advances_once_per_automatic_cycle() -> None:
+    """The whole point of day_in_pack() wrapping via modulo is that nobody
+    re-presses "start new pack" every cycle - but anything keying a
+    once-per-pack dedup off the raw (unchanging) pack_start_date would only
+    ever fire for the very first pack. current_pack_start() is what such
+    code should key off instead - it advances by a full pack+pause_days
+    every time day_in_pack() wraps.
+    """
+    start = date(2026, 7, 1)
+    total = PACK_SIZE + PAUSE_DAYS  # 28
+
+    assert pm.current_pack_start(start, date(2026, 7, total), PACK_SIZE, PAUSE_DAYS) == start
+    second_cycle_start = start + timedelta(days=total)
+    assert pm.current_pack_start(start, date(2026, 7, total) + timedelta(days=1), PACK_SIZE, PAUSE_DAYS) == (
+        second_cycle_start
+    )
+    third_cycle_start = start + timedelta(days=2 * total)
+    assert (
+        pm.current_pack_start(start, third_cycle_start + timedelta(days=5), PACK_SIZE, PAUSE_DAYS)
+        == third_cycle_start
+    )
 
 
 def test_is_pill_day() -> None:

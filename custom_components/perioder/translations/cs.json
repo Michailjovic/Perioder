@@ -211,6 +211,9 @@
       "confirm_pill_taken": {
         "name": "Potvrdit prášek"
       },
+      "start_new_pack": {
+        "name": "Nastartovat balení antikoncepce"
+      },
       "log_symptom_cramps": {
         "name": "Zapsat symptom: křeče"
       },

@@ -38,6 +38,25 @@ def day_in_pack(pack_start_date: date, today: date, pack_size: int, pause_days: 
     return (delta % total) + 1
 
 
+def current_pack_start(pack_start_date: date, today: date, pack_size: int, pause_days: int) -> date:
+    """Return the start date of the pack+pause cycle `today` currently falls in.
+
+    `pack_start_date` itself never changes once set - the automatic
+    week-to-week/pack-to-pack rhythm comes entirely from `day_in_pack()`
+    wrapping via modulo, on purpose (see its docstring), so nothing needs to
+    be re-pressed/re-started each cycle. But that means `pack_start_date` is
+    NOT a safe "which cycle are we in" identifier for anything that needs to
+    reset once per repeating cycle (e.g. the "pack running low" notification
+    dedup in __init__.py) - it's always the same original date. This returns
+    the *current* cycle's own start date instead, advancing in whole
+    `pack_size + pause_days` steps from `pack_start_date`, so per-cycle state
+    can key off something that actually changes each time around.
+    """
+    total = pack_cycle_length(pack_size, pause_days)
+    delta = (today - pack_start_date).days
+    return pack_start_date + timedelta(days=(delta // total) * total)
+
+
 def is_pill_day(day: int, pack_size: int) -> bool:
     """True on an active-pill day; false on a placebo/pause day."""
     return 1 <= day <= pack_size

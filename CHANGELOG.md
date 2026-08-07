@@ -5,6 +5,36 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.6] - 2026-08-07
+
+### Fixed
+
+- The "pack running low" restock notification's once-per-pack dedup key was
+  the stored `contraception.pack_start_date`, which never changes once set -
+  `day_in_pack()` wraps to the next pack automatically via modulo, on
+  purpose, precisely so nobody has to press anything each cycle. That meant
+  the restock notice only ever fired once, ever, for the very first pack,
+  and silently never again for any later automatic cycle. Added
+  `pill_math.current_pack_start()` - the start date of the cycle `today`
+  actually falls in - and switched the dedup key to that instead, so the
+  notification now re-arms every cycle exactly like the pill day/pause day
+  math already does. `button.*_start_new_pack` (v0.9.5) remains a one-time
+  activation / manual-correction action, not something meant to be pressed
+  every cycle.
+
+## [0.9.5] - 2026-08-07
+
+### Added
+
+- `button.*_start_new_pack` - one tap activates contraception tracking with
+  today as `pack_start_date` (`storage.py`'s `async_start_new_pack()`, same
+  as `perioder.start_new_pack` with no `date`). Root cause for
+  `binary_sensor.*_contraception_active` sitting "off with no obvious
+  reason": tracking is `inactive` by default and, before this button,
+  turning it on required calling `perioder.start_new_pack` via Developer
+  Tools > Actions - `dashboard_test.yaml` even calls this out in its own
+  instructions, but there was no button for it, only the service.
+
 ## [0.9.4] - 2026-08-07
 
 ### Fixed

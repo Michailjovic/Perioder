@@ -49,7 +49,7 @@ class NotificationState(TypedDict):
     last_reminder_date: str | None  # date the initial daily reminder was last sent
     escalation_count: int  # escalations sent so far for the current missed dose
     last_escalation_at: str | None  # isoformat datetime of the last escalation sent
-    restock_notified_for: str | None  # pack_start_date already notified about restock
+    restock_notified_for: str | None  # start date of the pack+pause cycle already notified about restock
     low_stock_notified: bool  # already warned about pills_in_stock being low (v0.8.0)
     snoozed_until: str | None  # isoformat datetime; reminder/escalation muted until then (v0.8.0)
 
@@ -324,9 +324,14 @@ class PerioderData:
             self.data["notifications"]["last_escalation_at"] = when.isoformat()
             await self.async_save()
 
-    async def async_mark_restock_notified(self, pack_start_date: str) -> None:
+    async def async_mark_restock_notified(self, cycle_start_date: str) -> None:
+        """Record that the restock notice went out for the pack+pause cycle
+        starting on `cycle_start_date` (see `pill_math.current_pack_start()`
+        - NOT the stored `contraception.pack_start_date`, which never
+        changes once set and would only ever dedupe the very first pack).
+        """
         if self.data:
-            self.data["notifications"]["restock_notified_for"] = pack_start_date
+            self.data["notifications"]["restock_notified_for"] = cycle_start_date
             await self.async_save()
 
     async def async_mark_low_stock_notified(self) -> None:

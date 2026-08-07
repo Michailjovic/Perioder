@@ -246,11 +246,21 @@ async def _async_check_contraception_notifications(
     # -- pack running low (once per pack) --------------------------------
     day = pm.day_in_pack(pack_start, today, settings[CONF_PACK_SIZE], settings[CONF_PAUSE_DAYS])
     days_left = pm.days_until_pack_ends(day, settings[CONF_PACK_SIZE])
+    # Dedup key is the *current* cycle's own start date, not the stored
+    # pack_start_date - that one never changes once set (day_in_pack() wraps
+    # to the next pack automatically via modulo, on purpose, so nothing has
+    # to be re-pressed each cycle - see pill_math.py). Keying off the raw
+    # pack_start_date meant this notification only ever fired once, for the
+    # very first pack, and then silently never again for any later
+    # automatic cycle.
+    current_cycle_start = pm.current_pack_start(
+        pack_start, today, settings[CONF_PACK_SIZE], settings[CONF_PAUSE_DAYS]
+    ).isoformat()
     if (
         not notif_state["paused"]
         and pm.is_pill_day(day, settings[CONF_PACK_SIZE])
         and days_left <= settings[CONF_RESTOCK_DAYS_BEFORE]
-        and notif_state["restock_notified_for"] != contraception["pack_start_date"]
+        and notif_state["restock_notified_for"] != current_cycle_start
     ):
         await notifications.async_notify_supporters(
             hass,
@@ -260,7 +270,7 @@ async def _async_check_contraception_notifications(
             general_message="Antikoncepční balení brzy dojde.",
             detailed_message=f"Antikoncepční balení brzy dojde - zbývá {days_left} dní aktivních tablet.",
         )
-        await data.async_mark_restock_notified(contraception["pack_start_date"])
+        await data.async_mark_restock_notified(current_cycle_start)
 
     # -- physical stock low, once until restocked (v0.8.0) -----------------
     # Separate signal from the pack-days-remaining check above: that one is
