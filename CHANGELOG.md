@@ -5,6 +5,29 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.7] - 2026-08-07
+
+### Fixed
+
+- `button.*_confirm_pill_taken` (and `perioder.log_pill_taken`) only ever
+  wrote to `pill_log` and never touched `active`/`pack_start_date` - so
+  confirming doses while contraception tracking had never been started left
+  `binary_sensor.*_contraception_active` stuck `off` next to real, logged
+  pill confirmations, with no obvious reason why. `storage.py`'s
+  `async_log_pill_taken()` now auto-activates on first confirmation
+  (`pack_start_date` = that day, if none was ever set), or just resumes in
+  place if a pack already existed but tracking was paused.
+  `button.*_start_new_pack` (v0.9.5) stays around for explicitly
+  (re)setting/backdating the pack start date.
+
+### Changed
+
+- `dashboard_test.yaml` / `lovelace_example.yaml`: entity IDs switched from
+  the `test_*` slug to `alina_*` (cycle owner named "Alina"), and
+  `dashboard_test.yaml` now includes `button.alina_start_new_pack` (added in
+  v0.9.5, wasn't on the dashboard until now) plus a PMS shared-calendar
+  category mention.
+
 ## [0.9.6] - 2026-08-07
 
 ### Fixed

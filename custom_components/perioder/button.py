@@ -69,7 +69,14 @@ class StartNewPackButton(ButtonEntity):
 
 
 class ConfirmPillTakenButton(ButtonEntity):
-    """Pressing this logs today's dose as taken."""
+    """Pressing this logs today's dose as taken.
+
+    v0.9.7: if contraception tracking wasn't active yet, this also
+    auto-activates it (see storage.py's `async_log_pill_taken()`) - so this
+    button alone is enough for the common "just start taking it" case, and
+    `StartNewPackButton` below is only needed to explicitly (re)set/backdate
+    the pack start date.
+    """
 
     _attr_has_entity_name = True
 

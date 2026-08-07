@@ -2,3 +2,11 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
+
+# Personal dashboard copies with real name/entity data - never public.
+# Public generic templates (dashboard_test.yaml, lovelace_example.yaml)
+# stay tracked; only the personalized *_alina.yaml copies are ignored.
+# The wildcard also catches any future personal file named after her.
+dashboard_alina.yaml
+lovelace_alina.yaml
+*alina*

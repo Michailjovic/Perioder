@@ -238,13 +238,32 @@ class PerioderData:
         (e.g. a double tap) does not decrement a second time; a date that was
         previously "missed" and now gets confirmed still decrements once,
         since that tablet genuinely was taken from stock.
+
+        v0.9.7: confirming a dose while tracking isn't active yet is treated
+        as "yes, I'm on this" and auto-activates it, so a logged pill can
+        never again sit next to `contraception_active: off` (which is
+        exactly what happened before this: `button.*_confirm_pill_taken`
+        only ever wrote to `pill_log` and never touched `active`/
+        `pack_start_date`, so tapping it repeatedly looked like nothing was
+        happening). If no pack has ever been started, `pack_start_date`
+        becomes `log_date`; if a pack already exists but tracking was merely
+        paused, this just resumes it in place (same as
+        `perioder.set_contraception_active(true)`) rather than restarting
+        the pack. `button.*_start_new_pack` / `perioder.start_new_pack`
+        still exist for explicitly (re)setting/backdating the pack start
+        date - this is only the implicit, "I just took a pill" case.
         """
         if not self.data:
             return
+        contraception = self.data["contraception"]
+        if not contraception["active"]:
+            contraception["active"] = True
+            if contraception["pack_start_date"] is None:
+                contraception["pack_start_date"] = log_date.isoformat()
         log_key = log_date.isoformat()
-        previous = self.data["contraception"]["pill_log"].get(log_key)
+        previous = contraception["pill_log"].get(log_key)
         already_taken = previous is not None and previous["status"] == "taken"
-        self.data["contraception"]["pill_log"][log_key] = {
+        contraception["pill_log"][log_key] = {
             "status": "taken",
             "logged_at": datetime.now().isoformat(),
         }
