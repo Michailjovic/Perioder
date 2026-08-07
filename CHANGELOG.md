@@ -5,6 +5,38 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.8] - 2026-08-07
+
+### Fixed
+
+- **Critical**: every service/button that relied on `date.today()` as a
+  default (`log_period_start`, `log_pill_taken`, `start_new_pack`, and the
+  `>` future-date guards in `log_period_end`) failed with
+  `AttributeError: module 'custom_components.perioder.date' has no
+  attribute 'today'` as soon as the integration's own `date` platform
+  (`date.py`) got loaded. Root cause: `__init__.py` IS the package's own
+  module namespace, and Python's import machinery binds any submodule it
+  imports (`custom_components.perioder.date`, the Platform.DATE entity
+  file) as an attribute of that same name on the parent package - silently
+  overwriting the `date` name `__init__.py` had bound to `datetime.date` at
+  import time via `from datetime import date`. Fixed by aliasing the import
+  (`from datetime import date as dt_date, ...`) and updating every call
+  site - `__init__.py` no longer keeps a `date` name around for the
+  platform import to clobber. Only `__init__.py` was affected; every other
+  module (`calendar.py`, `sensor.py`, `storage.py`, etc.) has its own
+  separate namespace and was never at risk.
+
+### Changed
+
+- Dashboards (`dashboard_test.yaml`, and the personal, gitignored
+  `dashboard_*.yaml` copies) swap the third-party `atomic-calendar-revive`
+  card (v0.9.3) for the built-in `type: calendar` card with
+  `initial_view: dayGridMonth` plus a `card_mod` style setting `min-height`
+  on `ha-card` - confirmed live 2026-08-07 that this combination (unlike
+  the plain `card_mod` attempt in v0.9.2) actually fixes the month-grid
+  clipping, so the integration needs only the common `card-mod` HACS
+  frontend module instead of a whole extra calendar card.
+
 ## [0.9.7] - 2026-08-07
 
 ### Fixed

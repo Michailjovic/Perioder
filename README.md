@@ -30,14 +30,18 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
    If you want to test the daily reminder, pick a **Your own notify device**
    too (any `mobile_app` device) - without one, the reminder/escalation has
    nowhere to send to and silently does nothing (a debug log line only).
-2. Install the **Atomic Calendar Revive** card first (HACS > Frontend >
-   search "Atomic Calendar Revive" > Install > reload the browser,
-   Ctrl+Shift+R) - `dashboard_test.yaml`'s two calendar cards use it instead
-   of the built-in `type: calendar` card, because the built-in one has no
-   way to fix its month-grid row height when a multi-day event's label gets
-   clipped (found live, v0.9.1/v0.9.2). It's the one non-native piece of
-   this dashboard; every control/sensor card is still a plain entity the
-   integration provides itself, no helpers or scripts.
+2. Install the **card-mod** frontend module first (HACS > Frontend > search
+   "card-mod" > Install > reload the browser, Ctrl+Shift+R) -
+   `dashboard_test.yaml`'s two calendar cards are the built-in `type:
+   calendar` card with `initial_view: dayGridMonth` plus a `card_mod` style
+   setting `min-height` on `ha-card`, which fixes the month-grid row height
+   clipping a plain built-in card has (found live, v0.9.1/v0.9.2 - a
+   third-party `atomic-calendar-revive` card was tried as a workaround in
+   v0.9.3, but this `card_mod` + `initial_view` combination turned out to
+   work fine, confirmed live 2026-08-07, and needs only the one common
+   frontend module instead of a whole extra calendar card). It's the one
+   non-native piece of this dashboard; every control/sensor card is still a
+   plain entity the integration provides itself, no helpers or scripts.
 3. Add a full test dashboard in one go: Settings > Dashboards > Add Dashboard >
    "New dashboard from scratch" > open it > pencil icon (Edit Dashboard) >
    three-dot menu > "Edit in YAML" > paste the contents of `dashboard_test.yaml`
@@ -52,10 +56,13 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
    real last day of bleeding, inclusive) - the calendar's period block for
    that cycle then shows the real span instead of the `period_duration`
    estimate. It resets itself the next time you log a new period start.
-5. To test contraception: call `perioder.start_new_pack` once (Developer
-   Tools > Actions) to set a pack start date - after that, `sensor.*_contraception_status`
-   shows `pending`/`taken`/`missed`/`paused`/`inactive` for today, and pressing
-   `button.*_confirm_pill_taken` logs today's dose (same as `perioder.log_pill_taken`).
+5. To test contraception: just press `button.*_confirm_pill_taken` - the
+   first confirmation auto-activates tracking with that day as the pack
+   start date (v0.9.7). After that, `sensor.*_contraception_status` shows
+   `pending`/`taken`/`missed`/`paused`/`inactive` for today.
+   `button.*_start_new_pack` / `perioder.start_new_pack` (Developer Tools >
+   Actions) are only needed to explicitly (re)set or backdate the pack
+   start date - not part of the normal day-to-day flow.
 6. The calendar card shows predicted periods/fertile windows/pack-pauses,
    plus every logged pill confirmation as its own event - open one to see
    how many minutes early/late it was confirmed vs. the daily reminder time.
