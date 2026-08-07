@@ -195,6 +195,9 @@
       },
       "last_period_end": {
         "name": "Log period end"
+      },
+      "pack_start_date": {
+        "name": "Contraception pack start date"
       }
     },
     "select": {
@@ -210,9 +213,6 @@
     "button": {
       "confirm_pill_taken": {
         "name": "Confirm pill taken"
-      },
-      "start_new_pack": {
-        "name": "Start new contraception pack"
       },
       "log_symptom_cramps": {
         "name": "Log symptom: cramps"

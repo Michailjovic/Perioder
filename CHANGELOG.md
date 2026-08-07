@@ -5,6 +5,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.9] - 2026-08-07
+
+### Changed
+
+- Replaced `button.*_start_new_pack` (v0.9.5, today-only) with
+  `date.*_pack_start_date` (date.py) - a settable date entity, same pattern
+  as `date.*_last_period_start`: picking a date *is* the action (activates
+  tracking + sets `pack_start_date`, via the same `async_start_new_pack()`),
+  backdating included, no separate button needed for "today" vs. a service
+  call for "any other day". This is meant to make the one-time setup step
+  clearer: set this once (or press `button.*_confirm_pill_taken`, which
+  auto-activates with today, v0.9.7) and the rest - pill day vs. pause day,
+  restock timing, calendar pause blocks, daily reminders - already computes
+  itself every cycle from that single date, nothing here needs repeating.
+  `perioder.start_new_pack` (the service) is unchanged.
+
 ## [0.9.8] - 2026-08-07
 
 ### Fixed

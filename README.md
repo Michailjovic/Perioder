@@ -59,10 +59,14 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
 5. To test contraception: just press `button.*_confirm_pill_taken` - the
    first confirmation auto-activates tracking with that day as the pack
    start date (v0.9.7). After that, `sensor.*_contraception_status` shows
-   `pending`/`taken`/`missed`/`paused`/`inactive` for today.
-   `button.*_start_new_pack` / `perioder.start_new_pack` (Developer Tools >
-   Actions) are only needed to explicitly (re)set or backdate the pack
-   start date - not part of the normal day-to-day flow.
+   `pending`/`taken`/`missed`/`paused`/`inactive` for today. If the real
+   first day was earlier than today, set `date.*_pack_start_date` instead
+   (v0.9.9) - same idea as `date.*_last_period_start`: pick a date, that
+   *is* the action, backdating included. Either way it's a one-time thing -
+   `day_in_pack()` wraps to the next pack automatically from then on, pause
+   days/reminders/restock timing all compute themselves, nothing needs
+   pressing again each cycle. `perioder.start_new_pack` (Developer Tools >
+   Actions) does the same as the date entity, for automations/voice/NFC.
 6. The calendar card shows predicted periods/fertile windows/pack-pauses,
    plus every logged pill confirmation as its own event - open one to see
    how many minutes early/late it was confirmed vs. the daily reminder time.

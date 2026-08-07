@@ -40,10 +40,11 @@ cards:
       okno bez čekání na skutečné datum. Antikoncepci není třeba nic
       "startovat" zvlášť - stačí mačkat "Potvrdit prášek" a sledování se
       samo aktivuje při prvním potvrzení (pack_start_date = ten den).
-      "Nastartovat balení antikoncepce" níž slouží jen na výslovné
-      nastavení/opravu data začátku balení (např. zpětné dopsání skutečného
-      prvního dne) - běžně se nemačká každý cyklus, dny/pauzy se počítají
-      samy dokola. Kalendář "Kalendář cyklu" ukazuje predikce
+      "Datum začátku balení" níž slouží jen na výslovné nastavení/opravu
+      (např. zpětné dopsání skutečného prvního dne, stejně jako "Zapsat
+      začátek periody") - nastaví se jednou a dny/pauzy/připomínky se pak
+      počítají samy dokola, nemusí se nastavovat znovu každý cyklus.
+      Kalendář "Kalendář cyklu" ukazuje predikce
       period/plodných dní/pauz balení a zpětně i to, kdy byl prášek skutečně
       potvrzený (a o kolik pozdě); "Sdílený kalendář" ukazuje jen generické
       "Citlivé období" bloky bez detailu podle zaškrtnutých kategorií v
@@ -106,8 +107,8 @@ cards:
         name: PMS přebití
       - entity: button.test_confirm_pill_taken
         name: Potvrdit prášek
-      - entity: button.test_start_new_pack
-        name: Nastartovat balení antikoncepce (jen korekce data)
+      - entity: date.test_pack_start_date
+        name: Datum začátku balení (jen korekce/zpětné zapsání)
       - entity: switch.test_pause_notifications
         name: Pozastavit notifikace
 
