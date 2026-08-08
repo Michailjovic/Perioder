@@ -5,6 +5,52 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.16] - 2026-08-08
+
+### Fixed
+
+- The daily contraception reminder (and every other time-of-day-sensitive
+  check: escalation, grace period, snooze, restock/low-stock dedup, the
+  09:00-style `reminder_time` comparison itself) used Python's bare
+  `datetime.now()` / `date.today()` throughout the integration. Those read
+  the underlying OS/container clock, not Home Assistant's own configured
+  time zone (Settings > General > Time zone) - a very common mismatch when
+  HA runs in a Docker container whose OS clock is UTC regardless of what
+  time zone HA is actually set to. Confirmed live 2026-08-08: the 09:00
+  reminder never fired because the code's "now" didn't match the intended
+  wall-clock 09:00.
+  - New `time_util.py`: `local_now()`/`local_today()`, both backed by
+    `homeassistant.util.dt.now()` (HA's own timezone-correct "now"), with
+    the tzinfo stripped back off so they stay drop-in compatible with
+    every existing naive-datetime call site (`datetime.combine(...)`,
+    stored `.isoformat()` timestamps, etc.) - no aware/naive comparison
+    changes needed anywhere else.
+  - Every `datetime.now()`/`date.today()` call across `__init__.py`,
+    `sensor.py`, `binary_sensor.py`, `button.py`, `calendar.py`, `date.py`,
+    and `storage.py` now goes through `time_util` instead.
+
+## [0.9.15] - 2026-08-08
+
+### Fixed
+
+- The four dashboard files' calendar cards used `entities: [{entity: ...,
+  color: '#...'}]` to force a custom color per category calendar. That
+  object form isn't part of the built-in `type: calendar` card's schema
+  (confirmed against the official docs - `entities` is a plain list of
+  entity ID strings, nothing more; per-entity custom colors are a
+  long-standing open feature request, not implemented). The invalid
+  config made the card hang in a permanent loading spinner client-side -
+  no error shown, and a hard refresh didn't help because the config
+  itself, not cached state, was the problem. Reverted `entities:` back to
+  plain entity ID lists on all four dashboards. The four category
+  calendars from 0.9.14 (`period_calendar`/`fertile_calendar`/
+  `pms_calendar`/`pause_calendar`) are still split out and each still
+  gets *a* distinct color from the built-in card's own auto-assignment
+  (by entity list order) - just not the specific red/green/purple/grey
+  chosen in 0.9.14, since the built-in card has no way to pin that down.
+  A third-party card (e.g. `calendar-card-pro` via HACS) would be needed
+  for exact, chosen-by-us colors; not added here - ask if that's wanted.
+
 ## [0.9.14] - 2026-08-08
 
 ### Added

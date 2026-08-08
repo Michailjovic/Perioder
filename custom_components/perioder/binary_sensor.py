@@ -22,6 +22,7 @@ from . import cycle_math as cm
 from .const import CONTRACEPTION_TAKEN, DOMAIN
 from .settings import get_settings
 from .storage import PerioderData
+from .time_util import local_today
 
 
 async def async_setup_entry(
@@ -78,7 +79,7 @@ class PeriodActiveBinarySensor(_PerioderBinarySensorBase):
         if last_start is None:
             return None
         settings = get_settings(self._entry)
-        day = cm.cycle_day(last_start, date.today())
+        day = cm.cycle_day(last_start, local_today())
         return cm.is_period_active(day, settings["period_duration"])
 
 
@@ -94,7 +95,7 @@ class PmsActiveBinarySensor(_PerioderBinarySensorBase):
         if last_start is None:
             return None
         settings = get_settings(self._entry)
-        today = date.today()
+        today = local_today()
         next_start = cm.next_period_date(last_start, settings["cycle_length"], today)
         return cm.is_pms_active(
             today, next_start, settings["pms_window_days"], override=self._data.pms_override
@@ -127,5 +128,5 @@ class PillTakenTodayBinarySensor(_PerioderBinarySensorBase):
         contraception = self._data.contraception
         if not contraception["active"]:
             return None
-        entry = contraception["pill_log"].get(date.today().isoformat())
+        entry = contraception["pill_log"].get(local_today().isoformat())
         return entry is not None and entry["status"] == CONTRACEPTION_TAKEN

@@ -94,6 +94,7 @@ from .const import (
 )
 from .settings import get_settings
 from .storage import PerioderData
+from .time_util import local_now, local_today
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ async def _async_handle_notification_action(hass: HomeAssistant, event: Event) -
         data = hass.data.get(DOMAIN, {}).get(entry_id)
         if data is None:
             return  # entry removed since the notification was sent
-        await data.async_log_pill_taken(dt_date.today())
+        await data.async_log_pill_taken(local_today())
         return
 
     if action.startswith(ACTION_POSTPONE_PILL_PREFIX):
@@ -230,7 +231,7 @@ async def _async_handle_notification_action(hass: HomeAssistant, event: Event) -
         if data is None or entry is None:
             return
         settings = get_settings(entry)
-        until = datetime.now() + timedelta(minutes=settings[CONF_ESCALATION_REPEAT_MINUTES])
+        until = local_now() + timedelta(minutes=settings[CONF_ESCALATION_REPEAT_MINUTES])
         await data.async_snooze(until)
 
 
@@ -249,8 +250,8 @@ async def _async_check_contraception_notifications(
 
     notif_state = data.notifications
     settings = get_settings(entry)
-    today = dt_date.today()
-    now = datetime.now()
+    today = local_today()
+    now = local_now()
     reminder_time = time.fromisoformat(settings[CONF_REMINDER_TIME])
     pack_start = dt_date.fromisoformat(contraception["pack_start_date"])
 
@@ -415,8 +416,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
         return
 
     async def handle_log_period_start(call: ServiceCall) -> None:
-        log_date = call.data.get("date", dt_date.today())
-        if log_date > dt_date.today():
+        log_date = call.data.get("date", local_today())
+        if log_date > local_today():
             raise ValueError("Cannot log a period start in the future")
         data = _get_entry_data(hass, call.data["config_entry_id"])
         await data.async_set_last_period_start(log_date)
@@ -430,7 +431,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
     async def handle_log_period_end(call: ServiceCall) -> None:
         log_date = call.data["date"]
-        if log_date > dt_date.today():
+        if log_date > local_today():
             raise ValueError("Cannot log a period end in the future")
         data = _get_entry_data(hass, call.data["config_entry_id"])
         last_start = data.last_period_start
@@ -459,8 +460,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
     )
 
     async def handle_log_pill_taken(call: ServiceCall) -> None:
-        log_date = call.data.get("date", dt_date.today())
-        if log_date > dt_date.today():
+        log_date = call.data.get("date", local_today())
+        if log_date > local_today():
             raise ValueError("Cannot log a dose taken in the future")
         data = _get_entry_data(hass, call.data["config_entry_id"])
         await data.async_log_pill_taken(log_date)
@@ -473,8 +474,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
     )
 
     async def handle_start_new_pack(call: ServiceCall) -> None:
-        start_date = call.data.get("date", dt_date.today())
-        if start_date > dt_date.today():
+        start_date = call.data.get("date", local_today())
+        if start_date > local_today():
             raise ValueError("Cannot start a pack in the future")
         data = _get_entry_data(hass, call.data["config_entry_id"])
         await data.async_start_new_pack(start_date)

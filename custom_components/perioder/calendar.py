@@ -51,6 +51,7 @@ from .const import (
 )
 from .settings import get_settings
 from .storage import PerioderData
+from .time_util import local_today
 
 # -- pure event generation, no I/O - shared by both calendar entities --------
 
@@ -241,7 +242,7 @@ class PerioderCalendar(CalendarEntity):
     @property
     def event(self) -> CalendarEvent | None:
         """Current or next event, looked up over roughly the next year."""
-        today = date.today()
+        today = local_today()
         events = self._events_between(today, today + timedelta(days=400))
         return events[0] if events else None
 
@@ -317,7 +318,7 @@ class PerioderSharedCalendar(CalendarEntity):
 
     @property
     def event(self) -> CalendarEvent | None:
-        today = date.today()
+        today = local_today()
         events = self._events_between(today, today + timedelta(days=400))
         return events[0] if events else None
 
@@ -408,7 +409,7 @@ class PerioderCategoryCalendar(CalendarEntity):
 
     @property
     def event(self) -> CalendarEvent | None:
-        today = date.today()
+        today = local_today()
         events = self._events_between(today, today + timedelta(days=400))
         return events[0] if events else None
 

@@ -1,17 +1,21 @@
-# Perioder v0.9.14 - JEDEN VIEW (single VIEW, not a whole-dashboard file).
+# Perioder v0.9.15 - JEDEN VIEW (single VIEW, not a whole-dashboard file).
 # Denní věci pro cyklus-ownera. Admin/diagnostika je v samostatném souboru
 # dashboard_test_admin.yaml jako DRUHÝ, samostatný dashboard.
 #
-# Design v0.9.14 - co se změnilo oproti v0.9.13:
+# Design v0.9.14/15 - co se změnilo oproti v0.9.13:
 #   1. Celý obsah je teď v JEDNOM `vertical-stack`u. Bez toho si Lovelace
 #      masonry view karty samo přerovnává do víc sloupců podle šířky
 #      obrazovky (na širokém displeji to vypadalo "rozsypaně" - symptomy a
 #      kalendář skákaly do jiného sloupce než zbytek). Vertical-stack se
 #      počítá jako JEDNA karta, takže se pořadí shora dolů už nemění.
 #   2. Kalendář dole už neukazuje PMS (to je jen pro admina, viz
-#      dashboard_test_admin.yaml) a navíc je barevně odlišený: perioda
-#      červeně, plodné dny zeleně, pauza balení šedě - běžná konvence z
-#      mobilních aplikací na sledování cyklu (Clue, Flo apod.).
+#      dashboard_test_admin.yaml) - místo jedné entity `cycle_calendar`
+#      teď kombinuje tři samostatné entity (perioda/plodné dny/pauza), z
+#      nichž každá dostane svou (automaticky přiřazenou) barvu. Vestavěná
+#      HA kalendářová karta bohužel neumí vynutit KONKRÉTNÍ barvu přes
+#      YAML (`entities: [{entity: ..., color: ...}]` v 0.9.14 způsobovalo
+#      nekonečné načítání karty - oprava v 0.9.15) - barvy jsou tak jen
+#      "nějak odlišné", ne nutně červená/zelená/šedá.
 #
 # Setup:
 #   1. Integrace musí být pojmenovaná přesně "Test".
@@ -162,12 +166,9 @@ cards:
 
       - type: calendar
         entities:
-          - entity: calendar.test_period_calendar
-            color: "#e5484d"
-          - entity: calendar.test_fertile_calendar
-            color: "#30a46c"
-          - entity: calendar.test_pause_calendar
-            color: "#8b8d98"
+          - calendar.test_period_calendar
+          - calendar.test_fertile_calendar
+          - calendar.test_pause_calendar
         initial_view: dayGridMonth
         title: Kalendář cyklu
         card_mod:

@@ -23,6 +23,7 @@ from . import pill_math as pm
 from .const import DOMAIN, SYMPTOMS
 from .settings import get_settings, get_supporters
 from .storage import PerioderData
+from .time_util import local_now, local_today
 
 
 async def async_setup_entry(
@@ -86,7 +87,7 @@ class CycleDaySensor(_PerioderSensorBase):
         last_start = self._last_start
         if last_start is None:
             return None
-        return cm.cycle_day(last_start, date.today())
+        return cm.cycle_day(last_start, local_today())
 
     @property
     def extra_state_attributes(self) -> dict[str, str]:
@@ -110,7 +111,7 @@ class PhaseSensor(_PerioderSensorBase):
         if last_start is None:
             return None
         settings = get_settings(self._entry)
-        day = cm.cycle_day(last_start, date.today())
+        day = cm.cycle_day(last_start, local_today())
         return cm.phase(day, settings["cycle_length"], settings["period_duration"])
 
 
@@ -129,7 +130,7 @@ class FertilitySensor(_PerioderSensorBase):
         if last_start is None:
             return None
         settings = get_settings(self._entry)
-        day = cm.cycle_day(last_start, date.today())
+        day = cm.cycle_day(last_start, local_today())
         return cm.fertility(day, settings["cycle_length"])
 
 
@@ -147,7 +148,7 @@ class NextPeriodSensor(_PerioderSensorBase):
         if last_start is None:
             return None
         settings = get_settings(self._entry)
-        return cm.days_until_next_period(last_start, settings["cycle_length"], date.today())
+        return cm.days_until_next_period(last_start, settings["cycle_length"], local_today())
 
 
 class ContraceptionStatusSensor(_PerioderSensorBase):
@@ -171,11 +172,11 @@ class ContraceptionStatusSensor(_PerioderSensorBase):
                 if contraception["pack_start_date"]
                 else None
             ),
-            today=date.today(),
+            today=local_today(),
             pack_size=settings["pack_size"],
             pause_days=settings["pause_days"],
             pill_log=contraception["pill_log"],
-            now=datetime.now(),
+            now=local_now(),
             reminder_time=reminder_time,
             grace_minutes=settings["escalation_grace_minutes"],
         )
@@ -183,14 +184,14 @@ class ContraceptionStatusSensor(_PerioderSensorBase):
     @property
     def extra_state_attributes(self) -> dict[str, str | int | None]:
         settings = get_settings(self._entry)
-        today_entry = self._data.contraception["pill_log"].get(date.today().isoformat())
+        today_entry = self._data.contraception["pill_log"].get(local_today().isoformat())
         if not today_entry or not today_entry.get("logged_at"):
             return {}
         logged_at = datetime.fromisoformat(today_entry["logged_at"])
         reminder_time = time.fromisoformat(settings["reminder_time"])
         return {
             "logged_at": today_entry["logged_at"],
-            "delay_minutes": pm.delay_minutes(logged_at, date.today(), reminder_time),
+            "delay_minutes": pm.delay_minutes(logged_at, local_today(), reminder_time),
         }
 
 
@@ -209,7 +210,7 @@ class PackDaysRemainingSensor(_PerioderSensorBase):
         if not contraception["active"] or not contraception["pack_start_date"]:
             return None
         pack_start = date.fromisoformat(contraception["pack_start_date"])
-        day = pm.day_in_pack(pack_start, date.today(), settings["pack_size"], settings["pause_days"])
+        day = pm.day_in_pack(pack_start, local_today(), settings["pack_size"], settings["pause_days"])
         return pm.days_until_pack_ends(day, settings["pack_size"])
 
 

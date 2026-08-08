@@ -1,14 +1,17 @@
-# Perioder v0.9.14 - JEDEN VIEW, SAMOSTATNÝ druhý dashboard (ne záložka) -
+# Perioder v0.9.15 - JEDEN VIEW, SAMOSTATNÝ druhý dashboard (ne záložka) -
 # admin/diagnostika: PMS okno, podporovatelé, korekce dat, testovací
 # notifikace, pauza notifikací, všechny kalendáře. Denní věci pro
 # cyklus-ownera jsou v dashboard_test.yaml.
 #
-# v0.9.14: celý obsah je teď v jednom vertical-stacku (stejný důvod jako u
-# dashboard_test.yaml - masonry view jinak karty přerovnává do víc sloupců
-# na širokém displeji) a přibyl barevný přehledový kalendář se všemi čtyřmi
-# typy bloků (perioda/plodné dny/PMS/pauza), každý svou barvou. PMS je tady
-# schválně - tenhle dashboard je admin-only, PMS se cyklus-ownerovi
-# nezobrazuje (viz dashboard_test.yaml).
+# v0.9.14/15: celý obsah je teď v jednom vertical-stacku (stejný důvod jako
+# u dashboard_test.yaml - masonry view jinak karty přerovnává do víc
+# sloupců na širokém displeji) a přibyl přehledový kalendář se všemi
+# čtyřmi typy bloků (perioda/plodné dny/PMS/pauza) jako čtyři samostatné
+# entity, každá se svou (automaticky přiřazenou) barvou - vestavěná HA
+# kalendářová karta neumí vynutit konkrétní barvu přes YAML (0.9.14 to
+# zkoušelo, způsobovalo to nekonečné načítání karty, opraveno v 0.9.15).
+# PMS je tady schválně - tenhle dashboard je admin-only, PMS se
+# cyklus-ownerovi nezobrazuje (viz dashboard_test.yaml).
 #
 # Setup: stejný postup jako u dashboard_test.yaml - založ DRUHÝ, nový
 # dashboard od začátku, "Upravit v YAML" (jeden view), vlož celý tenhle
@@ -21,7 +24,7 @@ cards:
     cards:
       - type: markdown
         content: >-
-          **Perioder v0.9.14.** Tenhle dashboard je pro admina, ne pro
+          **Perioder v0.9.15.** Tenhle dashboard je pro admina, ne pro
           cyklus-ownera - proto tu je PMS okno, podporovatelé, testovací
           notifikace a korekce dat, co se v běžném dni neřeší. "Datum začátku
           balení" slouží jen na výslovné nastavení/opravu (stejně jako "Zapsat
@@ -29,12 +32,12 @@ cards:
           počítají samy dokola, nemusí se nastavovat znovu každý cyklus.
           "Testovací notifikace" pošle push okamžitě, bez ohledu na čas
           připomínky - dobré na ověření, že `owner_notify_device` a Companion
-          app fungují. Barevný kalendář dole ukazuje predikce
-          period/plodných dní/PMS/pauz balení každý svou barvou; "Kalendář
-          cyklu (detailní)" navíc zpětně ukazuje, kdy byl prášek skutečně
-          potvrzený (a o kolik pozdě); "Sdílený kalendář" ukazuje jen
-          generické "Citlivé období" bloky bez detailu podle zaškrtnutých
-          kategorií v Configure.
+          app fungují. "Kalendář cyklu (přehled)" dole ukazuje predikce
+          period/plodných dní/PMS/pauz balení jako čtyři samostatné barevně
+          odlišené entity; "Kalendář cyklu (detailní)" navíc zpětně ukazuje,
+          kdy byl prášek skutečně potvrzený (a o kolik pozdě); "Sdílený
+          kalendář" ukazuje jen generické "Citlivé období" bloky bez detailu
+          podle zaškrtnutých kategorií v Configure.
 
       - type: glance
         title: Stav cyklu
@@ -124,16 +127,12 @@ cards:
 
       - type: calendar
         entities:
-          - entity: calendar.test_period_calendar
-            color: "#e5484d"
-          - entity: calendar.test_fertile_calendar
-            color: "#30a46c"
-          - entity: calendar.test_pms_calendar
-            color: "#8e4ec6"
-          - entity: calendar.test_pause_calendar
-            color: "#8b8d98"
+          - calendar.test_period_calendar
+          - calendar.test_fertile_calendar
+          - calendar.test_pms_calendar
+          - calendar.test_pause_calendar
         initial_view: dayGridMonth
-        title: Kalendář cyklu (barevně)
+        title: Kalendář cyklu (přehled)
         card_mod:
           style: |
             ha-card {

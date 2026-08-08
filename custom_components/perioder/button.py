@@ -33,8 +33,6 @@ use cases.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
-
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -46,6 +44,7 @@ from . import notifications
 from .const import CONF_OWNER_NOTIFY_DEVICE, DOMAIN, SYMPTOMS
 from .settings import get_settings
 from .storage import PerioderData
+from .time_util import local_now, local_today
 
 
 async def async_setup_entry(
@@ -110,7 +109,7 @@ class TestNotificationButton(ButtonEntity):
             "create",
             {
                 "title": "Perioder - test notifikace",
-                "message": f"Tlačítko zmáčknuto {datetime.now().strftime('%H:%M:%S')}. {outcome}",
+                "message": f"Tlačítko zmáčknuto {local_now().strftime('%H:%M:%S')}. {outcome}",
                 "notification_id": f"perioder_test_notification_{self._entry.entry_id}",
             },
         )
@@ -140,7 +139,7 @@ class ConfirmPillTakenButton(ButtonEntity):
         )
 
     async def async_press(self) -> None:
-        await self._data.async_log_pill_taken(date.today())
+        await self._data.async_log_pill_taken(local_today())
 
 
 class LogSymptomButton(ButtonEntity):

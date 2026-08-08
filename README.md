@@ -76,12 +76,16 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
    days/reminders/restock timing all compute themselves, nothing needs
    pressing again each cycle. `perioder.start_new_pack` (Developer Tools >
    Actions) does the same as the date entity, for automations/voice/NFC.
-6. The day-to-day calendar shows predicted periods (red), fertile windows
-   (green) and pack-pauses (grey) - PMS is deliberately left off it (that's
-   admin-only, see below). The admin dashboard's detailed calendar adds
-   PMS (purple) plus every logged pill confirmation as its own event - open
-   one to see how many minutes early/late it was confirmed vs. the daily
-   reminder time.
+6. The day-to-day calendar combines three separate entities - predicted
+   periods, fertile windows, and pack-pauses - each getting its own color
+   (auto-assigned by the calendar card in entity order; the built-in card
+   has no way to pin a specific color to a specific one, that's a
+   long-standing open Home Assistant feature request). PMS is deliberately
+   left off it (that's admin-only, see below). The admin dashboard's
+   "Kalendář cyklu (přehled)" adds PMS as a fourth entity; its detailed
+   calendar (`cycle_calendar`) additionally shows every logged pill
+   confirmation as its own event - open one to see how many minutes
+   early/late it was confirmed vs. the daily reminder time.
 7. To test the reminder/escalation: use `perioder.update_settings` to set
    `reminder_time` a couple of minutes from now (and optionally lower
    `escalation_grace_minutes`) - a check runs every 15 minutes, so give it

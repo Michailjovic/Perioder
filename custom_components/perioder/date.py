@@ -39,6 +39,7 @@ from homeassistant.util import slugify
 
 from .const import DOMAIN
 from .storage import PerioderData
+from .time_util import local_today
 
 
 async def async_setup_entry(
@@ -84,7 +85,7 @@ class LastPeriodStartDate(DateEntity):
         return self._data.last_period_start
 
     async def async_set_value(self, value: date) -> None:
-        if value > date.today():
+        if value > local_today():
             raise ValueError("Cannot log a period start in the future")
         await self._data.async_set_last_period_start(value)
 
@@ -121,7 +122,7 @@ class LastPeriodEndDate(DateEntity):
         return self._data.last_period_end
 
     async def async_set_value(self, value: date) -> None:
-        if value > date.today():
+        if value > local_today():
             raise ValueError("Cannot log a period end in the future")
         last_start = self._data.last_period_start
         if last_start is not None and value < last_start:
@@ -162,6 +163,6 @@ class PackStartDate(DateEntity):
         return date.fromisoformat(pack_start_date) if pack_start_date else None
 
     async def async_set_value(self, value: date) -> None:
-        if value > date.today():
+        if value > local_today():
             raise ValueError("Cannot start a pack in the future")
         await self._data.async_start_new_pack(value)

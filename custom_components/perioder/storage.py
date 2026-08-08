@@ -20,6 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import STORAGE_KEY_PREFIX, STORAGE_VERSION
+from .time_util import local_now
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -265,7 +266,7 @@ class PerioderData:
         already_taken = previous is not None and previous["status"] == "taken"
         contraception["pill_log"][log_key] = {
             "status": "taken",
-            "logged_at": datetime.now().isoformat(),
+            "logged_at": local_now().isoformat(),
         }
         if not already_taken:
             self.data["pills_in_stock"] = max(0, self.data.get("pills_in_stock", 0) - 1)
@@ -275,7 +276,7 @@ class PerioderData:
         if self.data:
             self.data["contraception"]["pill_log"][log_date.isoformat()] = {
                 "status": "missed",
-                "logged_at": datetime.now().isoformat(),
+                "logged_at": local_now().isoformat(),
             }
             await self.async_save()
 
@@ -309,7 +310,7 @@ class PerioderData:
 
     async def async_log_symptom(self, symptom: str) -> None:
         if self.data:
-            now = datetime.now().isoformat()
+            now = local_now().isoformat()
             self.data["symptoms"][symptom] = now
             self.data.setdefault("symptom_log", []).append({"symptom": symptom, "logged_at": now})
             await self.async_save()
