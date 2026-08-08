@@ -232,10 +232,22 @@
     },
     "calendar": {
       "cycle_calendar": {
-        "name": "Kalendář cyklu"
+        "name": "Kalendář cyklu (detailní)"
       },
       "shared_calendar": {
         "name": "Sdílený kalendář"
+      },
+      "period_calendar": {
+        "name": "Kalendář - perioda"
+      },
+      "fertile_calendar": {
+        "name": "Kalendář - plodné dny"
+      },
+      "pms_calendar": {
+        "name": "Kalendář - PMS"
+      },
+      "pause_calendar": {
+        "name": "Kalendář - pauza balení"
       }
     },
     "switch": {

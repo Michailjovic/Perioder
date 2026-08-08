@@ -1,0 +1,163 @@
+# Perioder v0.9.14 - JEDEN VIEW, SAMOSTATNÝ druhý dashboard (ne záložka) -
+# admin/diagnostika: PMS okno, podporovatelé, korekce dat, testovací
+# notifikace, pauza notifikací, všechny kalendáře. Denní věci pro
+# cyklus-ownera jsou v dashboard_test.yaml.
+#
+# v0.9.14: celý obsah je teď v jednom vertical-stacku (stejný důvod jako u
+# dashboard_test.yaml - masonry view jinak karty přerovnává do víc sloupců
+# na širokém displeji) a přibyl barevný přehledový kalendář se všemi čtyřmi
+# typy bloků (perioda/plodné dny/PMS/pauza), každý svou barvou. PMS je tady
+# schválně - tenhle dashboard je admin-only, PMS se cyklus-ownerovi
+# nezobrazuje (viz dashboard_test.yaml).
+#
+# Setup: stejný postup jako u dashboard_test.yaml - založ DRUHÝ, nový
+# dashboard od začátku, "Upravit v YAML" (jeden view), vlož celý tenhle
+# soubor.
+
+title: Admin
+path: perioder-test-admin
+cards:
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: >-
+          **Perioder v0.9.14.** Tenhle dashboard je pro admina, ne pro
+          cyklus-ownera - proto tu je PMS okno, podporovatelé, testovací
+          notifikace a korekce dat, co se v běžném dni neřeší. "Datum začátku
+          balení" slouží jen na výslovné nastavení/opravu (stejně jako "Zapsat
+          začátek periody") - nastaví se jednou a dny/pauzy/připomínky se pak
+          počítají samy dokola, nemusí se nastavovat znovu každý cyklus.
+          "Testovací notifikace" pošle push okamžitě, bez ohledu na čas
+          připomínky - dobré na ověření, že `owner_notify_device` a Companion
+          app fungují. Barevný kalendář dole ukazuje predikce
+          period/plodných dní/PMS/pauz balení každý svou barvou; "Kalendář
+          cyklu (detailní)" navíc zpětně ukazuje, kdy byl prášek skutečně
+          potvrzený (a o kolik pozdě); "Sdílený kalendář" ukazuje jen
+          generické "Citlivé období" bloky bez detailu podle zaškrtnutých
+          kategorií v Configure.
+
+      - type: glance
+        title: Stav cyklu
+        entities:
+          - entity: sensor.test_cycle_day
+            name: Den cyklu
+          - entity: sensor.test_phase
+            name: Fáze
+          - entity: sensor.test_fertility
+            name: Plodnost
+          - entity: sensor.test_next_period
+            name: Další perioda (dny)
+
+      - type: gauge
+        entity: sensor.test_cycle_day
+        name: Den cyklu
+        min: 1
+        max: 40
+        needle: true
+
+      - type: entities
+        title: Ostatní senzory
+        entities:
+          - entity: binary_sensor.test_period_active
+            name: Perioda probíhá
+          - entity: binary_sensor.test_pms_active
+            name: "PMS okno (admin pohled - nezobrazuje se cyklus-ownerovi)"
+            secondary_info: last-changed
+
+      - type: entities
+        title: Antikoncepce
+        entities:
+          - entity: sensor.test_contraception_status
+            name: Stav dnes
+          - entity: sensor.test_pack_days_remaining
+            name: Zbývá dní v balení
+          - entity: binary_sensor.test_contraception_active
+            name: Sledování aktivní
+          - entity: number.test_pills_in_stock
+            name: Zásoba prášků doma
+
+      - type: entities
+        title: Ovládání
+        entities:
+          - entity: date.test_last_period_start
+            name: Zapsat začátek periody
+          - entity: date.test_last_period_end
+            name: Zapsat konec periody
+          - entity: select.test_pms_override
+            name: PMS přebití
+          - entity: button.test_confirm_pill_taken
+            name: Potvrdit prášek
+          - entity: date.test_pack_start_date
+            name: Datum začátku balení (jen korekce/zpětné zapsání)
+          - entity: button.test_test_notification
+            name: "Testovací notifikace (obchází čas připomínky)"
+          - entity: switch.test_pause_notifications
+            name: Pozastavit notifikace
+
+      - type: entities
+        title: Symptomy
+        entities:
+          - entity: sensor.test_last_symptom
+            name: Poslední symptom
+            secondary_info: last-changed
+          - entity: button.test_log_symptom_cramps
+            name: "Zapsat: křeče"
+          - entity: button.test_log_symptom_headache
+            name: "Zapsat: bolest hlavy"
+          - entity: button.test_log_symptom_low_energy
+            name: "Zapsat: nízká energie"
+          - entity: button.test_log_symptom_mood_change
+            name: "Zapsat: změna nálady"
+
+      - type: markdown
+        title: Podporovatelé
+        content: >-
+          {% set s = state_attr('sensor.test_supporters', 'supporters') or [] %}
+          {% if s | length == 0 %}
+          Zatím žádní podporovatelé - přidej je v Nastavení > Zařízení a služby >
+          Perioder > Konfigurovat.
+          {% else %}
+          {% for supporter in s %}
+          - **{{ supporter.device_id }}** ({{ supporter.detail_level }}): {{ supporter.categories }}
+          {% endfor %}
+          {% endif %}
+
+      - type: calendar
+        entities:
+          - entity: calendar.test_period_calendar
+            color: "#e5484d"
+          - entity: calendar.test_fertile_calendar
+            color: "#30a46c"
+          - entity: calendar.test_pms_calendar
+            color: "#8e4ec6"
+          - entity: calendar.test_pause_calendar
+            color: "#8b8d98"
+        initial_view: dayGridMonth
+        title: Kalendář cyklu (barevně)
+        card_mod:
+          style: |
+            ha-card {
+              min-height: 500px;
+            }
+
+      - type: calendar
+        entities:
+          - calendar.test_cycle_calendar
+        initial_view: dayGridMonth
+        title: Kalendář cyklu (detailní, vč. potvrzení prášků)
+        card_mod:
+          style: |
+            ha-card {
+              min-height: 500px;
+            }
+
+      - type: calendar
+        entities:
+          - calendar.test_shared_calendar
+        initial_view: dayGridMonth
+        title: Sdílený kalendář (bez detailu)
+        card_mod:
+          style: |
+            ha-card {
+              min-height: 500px;
+            }

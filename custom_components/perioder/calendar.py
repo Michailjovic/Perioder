@@ -1,15 +1,21 @@
 """Calendar platform for Perioder.
 
-Two `calendar` entities per cycle owner:
+Six `calendar` entities per cycle owner:
 
-- `cycle_calendar` - the detailed one, for the cycle owner only. Combines
-  predicted period blocks, predicted fertile-window blocks (both projected
-  forward and backward from `last_period_start` to cover whatever range
-  Home Assistant queries), predicted contraception pack-pause blocks, and
+- `cycle_calendar` - the detailed, single-color one, all block kinds plus
   individual *logged* pill entries (taken/missed) with the confirmation
   delay vs. `reminder_time` in the description - the "see which dates the
   pill was actually taken, and how delayed" idea from
-  ANALYZA-A-ROADMAP.md section 2.1 (added 2026-07-29).
+  ANALYZA-A-ROADMAP.md section 2.1 (added 2026-07-29). Admin dashboard only.
+- `period_calendar` / `fertile_calendar` / `pms_calendar` / `pause_calendar`
+  - the same predicted blocks, split one-kind-per-entity (added 2026-08-08)
+  specifically so a Lovelace calendar card can list several of them
+  together with a distinct `color:` per entity - the built-in card has no
+  way to color events by type within a single calendar entity, only by
+  which entity they come from. `pms_calendar` is deliberately left off the
+  cycle owner's own dashboard (admin-only, same "supporters only, never
+  the owner's own dashboard" convention as `binary_sensor.pms_active`) -
+  the other three are fine for her to see directly.
 - `shared_calendar` - generic "sensitive period" blocks with no detail
   (no distinction between period/fertile/pause in the label, never any
   pill confirmations), for exporting into a shared family calendar. Which
@@ -196,7 +202,16 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Perioder calendars for one cycle owner."""
     data: PerioderData = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([PerioderCalendar(entry, data), PerioderSharedCalendar(entry, data)])
+    async_add_entities(
+        [
+            PerioderCalendar(entry, data),
+            PerioderSharedCalendar(entry, data),
+            PerioderCategoryCalendar(entry, data, "period_calendar", "period"),
+            PerioderCategoryCalendar(entry, data, "fertile_calendar", "fertile"),
+            PerioderCategoryCalendar(entry, data, "pms_calendar", "pms"),
+            PerioderCategoryCalendar(entry, data, "pause_calendar", "pause"),
+        ]
+    )
 
 
 class PerioderCalendar(CalendarEntity):
@@ -357,4 +372,81 @@ class PerioderSharedCalendar(CalendarEntity):
             if kind_to_category[kind] in enabled
         ]
 
+        return _sort_events(events)
+
+
+class PerioderCategoryCalendar(CalendarEntity):
+    """One block *kind* only ("period"/"fertile"/"pms"/"pause"), own entity.
+
+    Exists purely so a Lovelace calendar card can list several of these
+    together with a distinct `color:` per entity - see module docstring.
+    Same predicted-block math as `PerioderCalendar`, just filtered to one
+    `kind`, with no pill_log events (those stay on `cycle_calendar` only).
+    """
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+
+    def __init__(self, entry: ConfigEntry, data: PerioderData, key: str, kind: str) -> None:
+        self._entry = entry
+        self._data = data
+        self._kind = kind
+        self._attr_translation_key = key
+        self.entity_id = f"calendar.{slugify(entry.title)}_{key}"
+        self._attr_unique_id = f"{entry.entry_id}_{key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=entry.title,
+            manufacturer="Perioder",
+        )
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(self._data.add_listener(self._handle_update))
+
+    def _handle_update(self) -> None:
+        self.async_write_ha_state()
+
+    @property
+    def event(self) -> CalendarEvent | None:
+        today = date.today()
+        events = self._events_between(today, today + timedelta(days=400))
+        return events[0] if events else None
+
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
+        return self._events_between(start_date.date(), end_date.date())
+
+    def _events_between(self, start_date: date, end_date: date) -> list[CalendarEvent]:
+        settings = get_settings(self._entry)
+
+        if self._kind == "pause":
+            contraception = self._data.contraception
+            if not (contraception["active"] and contraception["pack_start_date"]):
+                return []
+            pack_start = date.fromisoformat(contraception["pack_start_date"])
+            events = [
+                event
+                for _kind, event in _pause_blocks(
+                    pack_start, settings["pack_size"], settings["pause_days"], start_date, end_date
+                )
+            ]
+            return _sort_events(events)
+
+        last_start = self._data.last_period_start
+        if last_start is None:
+            return []
+        events = [
+            event
+            for kind, event in _period_and_fertile_blocks(
+                last_start,
+                settings["cycle_length"],
+                settings["period_duration"],
+                settings["pms_window_days"],
+                start_date,
+                end_date,
+                real_period_end=self._data.last_period_end,
+            )
+            if kind == self._kind
+        ]
         return _sort_events(events)

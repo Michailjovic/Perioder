@@ -1,225 +1,175 @@
-# Perioder v0.9.10 - CELÝ dashboard (dvě záložky: "Test" a "Admin"), ne jen
-# jeden view jako dřívější verze.
+# Perioder v0.9.14 - JEDEN VIEW (single VIEW, not a whole-dashboard file).
+# Denní věci pro cyklus-ownera. Admin/diagnostika je v samostatném souboru
+# dashboard_test_admin.yaml jako DRUHÝ, samostatný dashboard.
 #
-# Proč dvě záložky: první je jen to, co cyklus-owner potřebuje řešit den co
-# den - potvrdit prášek, zapsat periodu, mrknout kolikátý den cyklu je.
-# "Admin" má všechno ostatní (diagnostika, podporovatelé, PMS, testovací
-# notifikace, korekce dat, pauza notifikací) - věci, co se řeší občas, ne
-# denně. PMS okno se na první záložce záměrně nezobrazuje (viz
-# binary_sensor.py - PMS je věc pro podporovatele, ne pro připomínání
-# cyklus-ownerovi samotnému/samotné).
+# Design v0.9.14 - co se změnilo oproti v0.9.13:
+#   1. Celý obsah je teď v JEDNOM `vertical-stack`u. Bez toho si Lovelace
+#      masonry view karty samo přerovnává do víc sloupců podle šířky
+#      obrazovky (na širokém displeji to vypadalo "rozsypaně" - symptomy a
+#      kalendář skákaly do jiného sloupce než zbytek). Vertical-stack se
+#      počítá jako JEDNA karta, takže se pořadí shora dolů už nemění.
+#   2. Kalendář dole už neukazuje PMS (to je jen pro admina, viz
+#      dashboard_test_admin.yaml) a navíc je barevně odlišený: perioda
+#      červeně, plodné dny zeleně, pauza balení šedě - běžná konvence z
+#      mobilních aplikací na sledování cyklu (Clue, Flo apod.).
 #
-# Setup (JINAK než starší verze tohoto souboru - tohle je CELÝ dashboard
-# s více views, ne jeden view):
+# Setup:
 #   1. Integrace musí být pojmenovaná přesně "Test".
-#   2. HACS > Frontend > "card-mod" nainstalovaný (kalendáře).
+#   2. HACS > Frontend > "card-mod" nainstalovaný (kalendář).
 #   3. Nastavení > Ovládací panely > "Přidat ovládací panel" > "Nový panel
-#      od začátku" > otevři ho > tužka (edit mode) > tři tečky VPRAVO NAHOŘE
-#      (na úrovni CELÉHO dashboardu, ne konkrétní karty) > "Upravit v YAML
-#      (Raw configuration editor)". Tohle je JINÝ editor než ten, co edituje
-#      jen jeden view - tenhle bere celý soubor včetně `views:` klíče.
-#   4. Smaž, co tam je, vlož CELÝ tenhle soubor (začíná `views:`). Ulož.
+#      od začátku" > otevřít > tužka (edit mode) > tři tečky > "Upravit v
+#      YAML" (edituje jen tenhle jeden view).
+#   4. Smaž, co tam je, vlož celý tenhle soubor. Ulož.
 #
 # Pokud používáš jiný název integrace než "Test", nahraď "test" ve všech
 # entity_id níže svým vlastním slugem (zkontroluj Developer Tools > States).
 
-views:
-  - title: Cyklus
-    path: test
-    icon: mdi:egg-outline
+title: Cyklus
+path: perioder-test
+cards:
+  - type: vertical-stack
     cards:
       - type: markdown
         content: >-
-          Zmáčkni "Potvrdit prášek", až si ho vezmeš. Periodu zapiš, jakmile
-          začne/skončí - klidně i zpětně, pokud to zapomeneš hned ten den.
+          🌷 Tlačítka níž **podrž** prstem (nestačí jen ťuknout) - ať se nic
+          nezapíše omylem, když jen scrolluješ. Periodu zapiš, jakmile
+          začne/skončí, klidně i zpětně, pokud to zapomeneš hned ten den.
 
-      - type: horizontal-stack
-        cards:
-          - type: tile
-            entity: button.test_confirm_pill_taken
-            name: Potvrdit prášek
-            icon: mdi:pill
-            color: blue
-          - type: tile
-            entity: sensor.test_contraception_status
-            name: Stav dnes
-            icon: mdi:clipboard-pulse-outline
+      - type: markdown
+        content: >-
+          {% set s = states('sensor.test_contraception_status') %}
+          {% set map = {
+            'pending': '⏳ Čeká se, až si dnes vezmeš tabletu',
+            'taken': '✅ Dnešní tableta potvrzená',
+            'missed': '💭 Dnešní tableta zatím nepotvrzená',
+            'paused': '🌙 Dnes je pauza, tablety netřeba',
+            'inactive': '💤 Sledování antikoncepce je vypnuté'
+          } %}
+          ### {{ map.get(s, s) }}
+
+      - type: tile
+        entity: button.test_confirm_pill_taken
+        name: Podrž pro potvrzení prášku
+        icon: mdi:pill
+        color: pink
+        tap_action:
+          action: none
+        hold_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.test_confirm_pill_taken
 
       - type: horizontal-stack
         cards:
           - type: tile
             entity: date.test_last_period_start
             name: Perioda začala
-            icon: mdi:calendar-start
+            icon: mdi:water-outline
+            color: red
           - type: tile
             entity: date.test_last_period_end
             name: Perioda skončila
-            icon: mdi:calendar-end
+            icon: mdi:water-off-outline
+            color: red
 
       - type: horizontal-stack
         cards:
           - type: tile
             entity: sensor.test_cycle_day
             name: Den cyklu
-            icon: mdi:calendar-today
+            icon: mdi:moon-waning-crescent
+            color: purple
           - type: tile
             entity: sensor.test_next_period
-            name: Další perioda (dní)
-            icon: mdi:calendar-clock
+            name: Za kolik dní perioda
+            icon: mdi:calendar-heart
+            color: purple
 
       - type: tile
         entity: number.test_pills_in_stock
         name: Zásoba prášků doma
         icon: mdi:pill-multiple
+        color: amber
 
-      - type: entities
-        title: Symptomy
-        entities:
-          - entity: sensor.test_last_symptom
-            name: Naposledy zapsáno
-            secondary_info: last-changed
-          - entity: button.test_log_symptom_cramps
+      - type: markdown
+        content: "### 💜 Jak se dnes cítíš? (podrž pro zapsání)"
+
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: button.test_log_symptom_cramps
             name: Křeče
-          - entity: button.test_log_symptom_headache
+            icon: mdi:lightning-bolt-outline
+            color: purple
+            tap_action:
+              action: none
+            hold_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.test_log_symptom_cramps
+          - type: tile
+            entity: button.test_log_symptom_headache
             name: Bolest hlavy
-          - entity: button.test_log_symptom_low_energy
+            icon: mdi:head-alert-outline
+            color: purple
+            tap_action:
+              action: none
+            hold_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.test_log_symptom_headache
+
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: button.test_log_symptom_low_energy
             name: Nízká energie
-          - entity: button.test_log_symptom_mood_change
+            icon: mdi:battery-low
+            color: purple
+            tap_action:
+              action: none
+            hold_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.test_log_symptom_low_energy
+          - type: tile
+            entity: button.test_log_symptom_mood_change
             name: Změna nálady
-
-      - type: calendar
-        entities:
-          - calendar.test_cycle_calendar
-        initial_view: dayGridMonth
-        title: Kalendář cyklu
-        card_mod:
-          style: |
-            ha-card {
-              min-height: 500px;
-            }
-
-  - title: Admin
-    path: admin
-    icon: mdi:cog-outline
-    cards:
-      - type: markdown
-        content: >-
-          **Perioder v0.9.10.** Tahle záložka je pro admina, ne pro
-          cyklus-ownera - proto tu je PMS okno, podporovatelé, testovací
-          notifikace a korekce dat, co se v běžném dni neřeší. "Datum
-          začátku balení" slouží jen na výslovné nastavení/opravu (stejně
-          jako "Zapsat začátek periody") - nastaví se jednou a dny/pauzy/
-          připomínky se pak počítají samy dokola, nemusí se nastavovat
-          znovu každý cyklus. "Testovací notifikace" pošle push okamžitě,
-          bez ohledu na čas připomínky - dobré na ověření, že
-          `owner_notify_device` a Companion app fungují. Kalendář "Kalendář
-          cyklu" ukazuje predikce period/plodných dní/PMS/pauz balení a
-          zpětně i to, kdy byl prášek skutečně potvrzený (a o kolik pozdě);
-          "Sdílený kalendář" ukazuje jen generické "Citlivé období" bloky
-          bez detailu podle zaškrtnutých kategorií v Configure.
-
-      - type: glance
-        title: Stav cyklu
-        entities:
-          - entity: sensor.test_cycle_day
-            name: Den cyklu
-          - entity: sensor.test_phase
-            name: Fáze
-          - entity: sensor.test_fertility
-            name: Plodnost
-          - entity: sensor.test_next_period
-            name: Další perioda (dny)
-
-      - type: gauge
-        entity: sensor.test_cycle_day
-        name: Den cyklu
-        min: 1
-        max: 40
-        needle: true
-
-      - type: entities
-        title: Ostatní senzory
-        entities:
-          - entity: binary_sensor.test_period_active
-            name: Perioda probíhá
-          - entity: binary_sensor.test_pms_active
-            name: "PMS okno (admin pohled - nezobrazuje se cyklus-ownerovi)"
-            secondary_info: last-changed
-
-      - type: entities
-        title: Antikoncepce
-        entities:
-          - entity: sensor.test_contraception_status
-            name: Stav dnes
-          - entity: sensor.test_pack_days_remaining
-            name: Zbývá dní v balení
-          - entity: binary_sensor.test_contraception_active
-            name: Sledování aktivní
-          - entity: number.test_pills_in_stock
-            name: Zásoba prášků doma
-
-      - type: entities
-        title: Ovládání
-        entities:
-          - entity: date.test_last_period_start
-            name: Zapsat začátek periody
-          - entity: date.test_last_period_end
-            name: Zapsat konec periody
-          - entity: select.test_pms_override
-            name: PMS přebití
-          - entity: button.test_confirm_pill_taken
-            name: Potvrdit prášek
-          - entity: date.test_pack_start_date
-            name: Datum začátku balení (jen korekce/zpětné zapsání)
-          - entity: button.test_test_notification
-            name: "Testovací notifikace (obchází čas připomínky)"
-          - entity: switch.test_pause_notifications
-            name: Pozastavit notifikace
-
-      - type: entities
-        title: Symptomy
-        entities:
-          - entity: sensor.test_last_symptom
-            name: Poslední symptom
-            secondary_info: last-changed
-          - entity: button.test_log_symptom_cramps
-            name: "Zapsat: křeče"
-          - entity: button.test_log_symptom_headache
-            name: "Zapsat: bolest hlavy"
-          - entity: button.test_log_symptom_low_energy
-            name: "Zapsat: nízká energie"
-          - entity: button.test_log_symptom_mood_change
-            name: "Zapsat: změna nálady"
+            icon: mdi:emoticon-outline
+            color: purple
+            tap_action:
+              action: none
+            hold_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.test_log_symptom_mood_change
 
       - type: markdown
-        title: Podporovatelé
         content: >-
-          {% set s = state_attr('sensor.test_supporters', 'supporters') or [] %}
-          {% if s | length == 0 %}
-          Zatím žádní podporovatelé - přidej je v Nastavení > Zařízení a služby >
-          Perioder > Konfigurovat.
-          {% else %}
-          {% for supporter in s %}
-          - **{{ supporter.device_id }}** ({{ supporter.detail_level }}): {{ supporter.categories }}
-          {% endfor %}
+          {% set sym = states('sensor.test_last_symptom') %}
+          {% set map = {
+            'cramps': 'křeče', 'headache': 'bolest hlavy',
+            'low_energy': 'nízká energie', 'mood_change': 'změna nálady'
+          } %}
+          {% if sym not in ['unknown', 'unavailable', ''] %}
+          Naposledy zapsáno: **{{ map.get(sym, sym) }}**
           {% endif %}
 
       - type: calendar
         entities:
-          - calendar.test_cycle_calendar
+          - entity: calendar.test_period_calendar
+            color: "#e5484d"
+          - entity: calendar.test_fertile_calendar
+            color: "#30a46c"
+          - entity: calendar.test_pause_calendar
+            color: "#8b8d98"
         initial_view: dayGridMonth
-        title: Kalendář cyklu (detailní)
-        card_mod:
-          style: |
-            ha-card {
-              min-height: 500px;
-            }
-
-      - type: calendar
-        entities:
-          - calendar.test_shared_calendar
-        initial_view: dayGridMonth
-        title: Sdílený kalendář (bez detailu)
+        title: Kalendář cyklu
         card_mod:
           style: |
             ha-card {

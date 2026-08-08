@@ -232,10 +232,22 @@
     },
     "calendar": {
       "cycle_calendar": {
-        "name": "Cycle calendar"
+        "name": "Cycle calendar (detailed)"
       },
       "shared_calendar": {
         "name": "Shared calendar"
+      },
+      "period_calendar": {
+        "name": "Calendar - period"
+      },
+      "fertile_calendar": {
+        "name": "Calendar - fertile window"
+      },
+      "pms_calendar": {
+        "name": "Calendar - PMS"
+      },
+      "pause_calendar": {
+        "name": "Calendar - pack pause"
       }
     },
     "switch": {

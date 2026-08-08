@@ -5,6 +5,112 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.14] - 2026-08-08
+
+### Added
+
+- `calendar.py`: four new lightweight per-category calendar entities -
+  `period_calendar`, `fertile_calendar`, `pms_calendar`, `pause_calendar` -
+  each showing only its own block kind. The built-in Lovelace `calendar`
+  card can only color events per-*entity*, not per-event-type within one
+  entity, so this is what makes real color-coding possible (period/fertile
+  window/PMS/pack pause each in their own color) without pulling in a
+  third-party calendar card again.
+
+### Changed
+
+- `dashboard_test.yaml` / `dashboard_alina.yaml` (the day-to-day view):
+  - The whole card list is now wrapped in one `vertical-stack`. Lovelace's
+    default masonry view auto-distributes top-level cards into multiple
+    columns based on screen width, which on a wide screen was splitting
+    the symptom tiles and calendar into a seemingly random second/third
+    column instead of following reading order. A `vertical-stack` counts
+    as a single card for masonry's purposes, so the layout is now always
+    one predictable top-to-bottom column regardless of screen width.
+  - The bottom calendar no longer points at `cycle_calendar` (which always
+    includes PMS) - it now lists `period_calendar` (red), `fertile_calendar`
+    (green) and `pause_calendar` (grey) with per-entity colors. PMS is
+    admin-only info about the cycle owner, not something to surface to her
+    about herself on her own dashboard - same convention already
+    documented on `binary_sensor.pms_active`, just not actually followed
+    on the calendar card until now.
+- `dashboard_test_admin.yaml` / `dashboard_alina_admin.yaml`: same
+  vertical-stack wrap, plus a new "Kalendář cyklu (barevně)" card listing
+  all four category calendars including `pms_calendar` (purple), colored
+  the same way as the owner dashboard. The existing detailed single-color
+  `cycle_calendar` card (pill-log confirmation history) is kept alongside
+  it, retitled to make clear it's specifically for that.
+- Colors used: period `#e5484d` (red), fertile window `#30a46c` (green),
+  PMS `#8e4ec6` (purple), pack pause `#8b8d98` (grey) - a fairly standard
+  palette in period-tracking apps (red/coral for bleeding, green for the
+  fertile window, purple for PMS/mood-related symptoms, neutral grey for
+  "nothing to track" days).
+
+## [0.9.13] - 2026-08-08
+
+### Changed
+
+- `dashboard_test.yaml` / `dashboard_alina.yaml` (the day-to-day view)
+  redesigned per feedback that the previous version, while less cluttered
+  than the original single flat list, still wasn't comfortable to use:
+  - Every button (confirm pill, log symptom) now requires a **hold**
+    instead of a tap (`tap_action: none` + `hold_action` calling
+    `button.press`) - a plain tap or a scroll gesture over the tile no
+    longer does anything, which was the actual bug: scrolling past
+    "Potvrdit prášek" or a symptom tile could register as a press.
+  - Warmer, less clinical look: pink/purple/amber/red tile colors instead
+    of blue, warmer icons (`mdi:water-outline`, `mdi:moon-waning-crescent`,
+    `mdi:heart-pulse`-style symptom icons), a friendly Czech greeting.
+  - Contraception status and last symptom are now full Czech sentences via
+    a templated markdown card (`{{ map.get(state, state) }}`) instead of
+    the entity's raw translated state - which was leaking English
+    ("Pending", "Mood change") whenever the viewing profile's HA frontend
+    language wasn't Czech; the template sidesteps frontend locale
+    entirely.
+
+## [0.9.12] - 2026-08-08
+
+### Diagnosed (no code change - environment issue)
+
+- Root cause of the "cycle day: 98 / next period: -69 days" reports finally
+  found: the user also runs the `cyclist` integration for the same person,
+  named "Alina" in both. Home Assistant's entity registry gave the
+  second-loaded integration's `sensor.alina_cycle_day` a silent `_2` suffix
+  to avoid the collision - the dashboard's unsuffixed `sensor.alina_cycle_day`
+  was actually `cyclist`'s entity (unrelated data, coincidentally
+  same-shaped state), not Perioder's. Every live check via the Home
+  Assistant MCP connector had actually been reading the *correct* (`_2`)
+  Perioder entity the whole time, which is why the numbers always looked
+  right from that angle - the disconnect was entirely about which entity
+  the dashboard YAML pointed at. Resolved by uninstalling `cyclist` and
+  recreating the affected entity IDs; no Perioder code was at fault. See
+  the new README "Known gaps" entry for how to avoid this with any other
+  same-purpose integration.
+
+### Changed
+
+- Reverted the v0.9.11 two-tab single-dashboard (`views:` + "Raw
+  configuration editor") back to **two separate single-view dashboards**
+  per the user's explicit preference: `dashboard_test.yaml` (day-to-day)
+  and `dashboard_test_admin.yaml` (everything else), each pasted the
+  original, simpler way (per-view "Edit in YAML"). Same split for the
+  personal `dashboard_alina*.yaml` copies.
+
+### Investigating
+
+- "Cycle day"/"next period" still shown wrong on the dashboard (98 /
+  -69 days) after a hard refresh, despite `sensor.*_cycle_day` /
+  `sensor.*_next_period` reading correctly (12 / 17, matching the logged
+  dates) via three separate live queries through the Home Assistant MCP
+  connector across ~40 minutes. Since that path reads Home Assistant's
+  in-memory state directly (not the browser), the backend computation
+  itself is very likely fine; a plain browser hard-refresh not fixing it
+  points at something below the browser cache layer for however the
+  dashboard is actually being viewed (frontend service worker/PWA cache,
+  a Companion App WebView on a tablet - "Ctrl+Shift+R" doesn't apply
+  there at all, or a caching reverse proxy) - unresolved, needs to know
+  which device/app is showing the stale value to pin down further.
+
 ## [0.9.11] - 2026-08-08
 
 ### Changed

@@ -23,7 +23,7 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
 3. Install **Perioder** and restart Home Assistant.
 4. Settings > Devices & Services > Add Integration > **Perioder**.
 
-## First use / testing (v0.9.10)
+## First use / testing (v0.9.14)
 
 1. During setup, name it exactly **Test** (this becomes the device name and
    determines entity IDs - the ready-made dashboard below assumes this name).
@@ -41,20 +41,22 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
    confirmed live 2026-08-07). It's the one non-native piece of this
    dashboard; every control/sensor card is still a plain entity the
    integration provides itself, no helpers or scripts.
-3. `dashboard_test.yaml` is a **whole dashboard with two tabs** (v0.9.10),
-   not a single view - "Cyklus" (day-to-day actions: confirm pill, log
-   period, cycle day/next period, symptoms, calendar) and "Admin"
-   (everything else: PMS window, supporters, pack start date correction,
-   test notification, pause switch, both calendars). Add it in one go:
+3. Two separate single-view dashboards (v0.9.12) instead of one dashboard
+   with tabs: `dashboard_test.yaml` (day-to-day: confirm pill, log period,
+   cycle day/next period, symptoms, a colored period/fertile/pause calendar
+   - no PMS) and `dashboard_test_admin.yaml` (everything else: PMS window,
+   supporters, pack start date correction, test notification, pause switch,
+   the same calendar plus PMS, the detailed pill-log calendar, and the
+   shared calendar). Each file's card list is one `vertical-stack`, so it
+   renders as a single predictable column regardless of screen width - a
+   plain flat card list would otherwise get auto-split into multiple
+   columns by Lovelace's masonry view on wide screens. Add each the same way:
    Settings > Dashboards > Add Dashboard > "New dashboard from scratch" >
-   open it > pencil icon (Edit Dashboard) > three-dot menu (top right, at
-   the dashboard level, not inside a card) > **"Raw configuration editor"**
-   > delete what's there > paste the whole file (it starts with `views:`)
-   > Save. This is a different editor than the single-view YAML editor
-   older versions of this file used - pasting a `views:`-rooted file into
-   the single-view editor is what causes a blank page. (`lovelace_example.yaml`
-   is a single small entities card, for dropping into a dashboard you
-   already have - no calendar, no card-mod needed.)
+   open it > pencil icon (Edit Dashboard) > three-dot menu > "Edit in YAML"
+   > delete what's there > paste the file's contents > Save. Do this twice,
+   once per file. (`lovelace_example.yaml` is a single small entities card,
+   for dropping into a dashboard you already have - no calendar, no
+   card-mod needed.)
 4. From the dashboard: click the date entity and pick a date (today, or
    earlier if you're only entering it the next day) - that logs the period
    start immediately, no separate confirm step. The PMS dropdown forces the
@@ -74,9 +76,12 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
    days/reminders/restock timing all compute themselves, nothing needs
    pressing again each cycle. `perioder.start_new_pack` (Developer Tools >
    Actions) does the same as the date entity, for automations/voice/NFC.
-6. The calendar card shows predicted periods/fertile windows/pack-pauses,
-   plus every logged pill confirmation as its own event - open one to see
-   how many minutes early/late it was confirmed vs. the daily reminder time.
+6. The day-to-day calendar shows predicted periods (red), fertile windows
+   (green) and pack-pauses (grey) - PMS is deliberately left off it (that's
+   admin-only, see below). The admin dashboard's detailed calendar adds
+   PMS (purple) plus every logged pill confirmation as its own event - open
+   one to see how many minutes early/late it was confirmed vs. the daily
+   reminder time.
 7. To test the reminder/escalation: use `perioder.update_settings` to set
    `reminder_time` a couple of minutes from now (and optionally lower
    `escalation_grace_minutes`) - a check runs every 15 minutes, so give it
@@ -135,10 +140,14 @@ and do exactly the same thing as the matching entities/Options Flow.
 - Switch entity: pause all notifications for this cycle owner.
 - Number entity: `pills_in_stock` - settable physical tablet count, auto-decremented per confirmed dose.
 - Calendar entities: `cycle_calendar` (detailed - predicted period/fertile/
-  pack-pause blocks plus every logged pill confirmation, with the delay vs.
-  the reminder time) and `shared_calendar` (generic "sensitive period"
-  blocks with no detail, for exporting to a shared family calendar -
-  which block types show up at all is configurable).
+  pms/pack-pause blocks plus every logged pill confirmation, with the delay
+  vs. the reminder time), `period_calendar`/`fertile_calendar`/
+  `pms_calendar`/`pause_calendar` (the same predicted blocks split one kind
+  per entity, so a Lovelace calendar card can color each one differently -
+  `pms_calendar` is meant for the admin dashboard only), and
+  `shared_calendar` (generic "sensitive period" blocks with no detail, for
+  exporting to a shared family calendar - which block types show up at all
+  is configurable).
 - Notifications: daily contraception reminder + escalation to your own
   device (with actionable "Vzal(a) jsem"/"Odložit" buttons, v0.8.0), a
   missed-dose alert to subscribed supporters (with a fertile-window
@@ -193,18 +202,24 @@ not automated tests.
 
 - No dashboard screenshots in this README yet - the author hasn't captured
   any from a running instance.
-- The notification engine (M4) hasn't been confirmed working against a
-  real `mobile_app` device end-to-end.
 - The v0.8.0 actionable notification buttons ("Vzal(a) jsem"/"Odložit")
   depend on the Home Assistant Companion app version on the phone - not yet
   confirmed to actually render as tappable buttons on a real device.
-- `dashboard_test.yaml`'s calendar cards now need the third-party **Atomic
-  Calendar Revive** HACS card (v0.9.3) - the built-in `type: calendar` card
-  clipped multi-day event bars in its month view with no fix available
-  (`initial_view: listWeek` in v0.9.1 was rejected as unusable; `card-mod`
-  CSS in v0.9.2 didn't work). Confirmed via its GitHub repo that it's
-  actively maintained and takes a plain `calendar.*` entity, but the actual
-  fix (`cardHeight`) hasn't been checked against a running instance.
+- **Name your cycle owner something that won't collide with another
+  integration's entities** (found live 2026-08-08). If you also run the
+  [cyclist](https://github.com/ringleader/cyclist) integration (the project
+  this one's fertility/phase math was originally adapted from, see
+  `cycle_math.py`) for the *same person*, both integrations end up wanting
+  entity IDs like `sensor.<name>_cycle_day` - whichever loads second gets
+  silently suffixed `_2` by Home Assistant's entity registry, and it's very
+  easy to end up with a dashboard pointed at the *other* integration's
+  entity instead of Perioder's (same-shaped state, completely different -
+  and in this case wildly wrong-looking - numbers, no error anywhere to
+  flag it). If you hit numbers that don't match the logged dates, check
+  Developer Tools > States for a same-named `_2` entity before assuming a
+  math bug. Cleanest fix: don't run both integrations under the same
+  name for the same person, or rename one so their entity ID prefixes
+  never overlap.
 - See "Not yet implemented" above and `ANALYZA-A-ROADMAP.md` for the rest.
 
 ## Project docs
