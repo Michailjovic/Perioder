@@ -109,6 +109,8 @@ cards:
         name: Potvrdit prášek
       - entity: date.test_pack_start_date
         name: Datum začátku balení (jen korekce/zpětné zapsání)
+      - entity: button.test_test_notification
+        name: "Testovací notifikace (obchází čas připomínky)"
       - entity: switch.test_pause_notifications
         name: Pozastavit notifikace
 

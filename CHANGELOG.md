@@ -5,6 +5,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.10] - 2026-08-08
+
+### Added
+
+- `button.*_test_notification` - fires `notifications.async_notify_owner()`
+  directly, bypassing every bit of the reminder/escalation timing logic
+  (reminder_time, grace period, pause state, the 15-minute tick). Isolates
+  "the notify pipeline itself is broken" from "it's just not the right
+  moment yet" - both look identical from "nothing arrived on my phone",
+  which is exactly the report that prompted this (owner confirmed
+  `owner_notify_device` is set, no notification the previous evening).
+  Also drops a `persistent_notification` reporting whether
+  `owner_notify_device` was even configured, since a bad/missing notify
+  target otherwise fails silently on the push side by design (one
+  supporter's bad target shouldn't block anything else - see
+  notifications.py).
+
 ## [0.9.9] - 2026-08-07
 
 ### Changed

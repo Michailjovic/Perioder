@@ -214,6 +214,9 @@
       "confirm_pill_taken": {
         "name": "Confirm pill taken"
       },
+      "test_notification": {
+        "name": "Test notification"
+      },
       "log_symptom_cramps": {
         "name": "Log symptom: cramps"
       },
