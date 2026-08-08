@@ -23,7 +23,7 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
 3. Install **Perioder** and restart Home Assistant.
 4. Settings > Devices & Services > Add Integration > **Perioder**.
 
-## First use / testing (v0.9.3)
+## First use / testing (v0.9.10)
 
 1. During setup, name it exactly **Test** (this becomes the device name and
    determines entity IDs - the ready-made dashboard below assumes this name).
@@ -32,22 +32,29 @@ One practical consequence: the PMS-window binary sensor always exists (so an adm
    nowhere to send to and silently does nothing (a debug log line only).
 2. Install the **card-mod** frontend module first (HACS > Frontend > search
    "card-mod" > Install > reload the browser, Ctrl+Shift+R) -
-   `dashboard_test.yaml`'s two calendar cards are the built-in `type:
-   calendar` card with `initial_view: dayGridMonth` plus a `card_mod` style
-   setting `min-height` on `ha-card`, which fixes the month-grid row height
-   clipping a plain built-in card has (found live, v0.9.1/v0.9.2 - a
-   third-party `atomic-calendar-revive` card was tried as a workaround in
-   v0.9.3, but this `card_mod` + `initial_view` combination turned out to
-   work fine, confirmed live 2026-08-07, and needs only the one common
-   frontend module instead of a whole extra calendar card). It's the one
-   non-native piece of this dashboard; every control/sensor card is still a
-   plain entity the integration provides itself, no helpers or scripts.
-3. Add a full test dashboard in one go: Settings > Dashboards > Add Dashboard >
-   "New dashboard from scratch" > open it > pencil icon (Edit Dashboard) >
-   three-dot menu > "Edit in YAML" > paste the contents of `dashboard_test.yaml`
-   > Save. (`lovelace_example.yaml` is the same sensor cards as a single
-   card, for dropping into a dashboard you already have - it doesn't include
-   the calendar cards, so it doesn't need Atomic Calendar Revive.)
+   `dashboard_test.yaml`'s calendar cards are the built-in `type: calendar`
+   card with `initial_view: dayGridMonth` plus a `card_mod` style setting
+   `min-height` on `ha-card`, which fixes the month-grid row height clipping
+   a plain built-in card has (found live, v0.9.1/v0.9.2 - a third-party
+   `atomic-calendar-revive` card was tried as a workaround in v0.9.3, but
+   this `card_mod` + `initial_view` combination turned out to work fine,
+   confirmed live 2026-08-07). It's the one non-native piece of this
+   dashboard; every control/sensor card is still a plain entity the
+   integration provides itself, no helpers or scripts.
+3. `dashboard_test.yaml` is a **whole dashboard with two tabs** (v0.9.10),
+   not a single view - "Cyklus" (day-to-day actions: confirm pill, log
+   period, cycle day/next period, symptoms, calendar) and "Admin"
+   (everything else: PMS window, supporters, pack start date correction,
+   test notification, pause switch, both calendars). Add it in one go:
+   Settings > Dashboards > Add Dashboard > "New dashboard from scratch" >
+   open it > pencil icon (Edit Dashboard) > three-dot menu (top right, at
+   the dashboard level, not inside a card) > **"Raw configuration editor"**
+   > delete what's there > paste the whole file (it starts with `views:`)
+   > Save. This is a different editor than the single-view YAML editor
+   older versions of this file used - pasting a `views:`-rooted file into
+   the single-view editor is what causes a blank page. (`lovelace_example.yaml`
+   is a single small entities card, for dropping into a dashboard you
+   already have - no calendar, no card-mod needed.)
 4. From the dashboard: click the date entity and pick a date (today, or
    earlier if you're only entering it the next day) - that logs the period
    start immediately, no separate confirm step. The PMS dropdown forces the

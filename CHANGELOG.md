@@ -5,6 +5,37 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.11] - 2026-08-08
+
+### Changed
+
+- `dashboard_test.yaml` / `dashboard_alina.yaml` restructured into a whole
+  dashboard with **two views/tabs** instead of one flat card list: a simple
+  day-to-day tab (confirm pill, log period, cycle day/next period,
+  symptoms, calendar) and an "Admin" tab with everything else (PMS window,
+  supporters, pack start date correction, test notification, pause switch,
+  both calendars) - the single flat list had grown to ~20 cards/rows and
+  was reported as genuinely hard for a non-technical cycle owner to use.
+  PMS stays off the simple tab on purpose (see binary_sensor.py - it's a
+  supporter-facing signal, not something to surface to the cycle owner
+  about themselves). Setup changed accordingly: this now needs the
+  dashboard-level **"Raw configuration editor"** (handles multiple
+  `views:`), not the single-view YAML editor used by older versions of
+  this file.
+
+### Fixed nothing, but investigated
+
+- Reported "cycle day shows 98 / next period shows -69" while phase/
+  fertility looked correct: live-queried the actual entity states via the
+  Home Assistant MCP connector (bypasses any dashboard/frontend caching)
+  and got `cycle_day: 12`, `next_period: 17` - matching what the code
+  computes from the logged dates. `next_period` in particular can
+  structurally never be negative (`days_until_next_period()`'s loop only
+  ever advances `candidate` until it's `>= today`), which rules out a
+  current backend bug outright - the dashboard was showing a stale
+  browser-cached value, not a live one. No code change needed; a hard
+  refresh (Ctrl+Shift+R) should clear it.
+
 ## [0.9.10] - 2026-08-08
 
 ### Added
