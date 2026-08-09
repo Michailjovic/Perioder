@@ -5,6 +5,29 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.17] - 2026-08-09
+
+### Fixed
+
+- The daily contraception reminder could get permanently stuck and stop
+  firing entirely - confirmed live 2026-08-09, still happening even with
+  0.9.16 (the clock fix) deployed and the notify pipeline itself verified
+  working ("Test notification" button). Root cause: in
+  `_async_check_contraception_notifications()`, the `snoozed_until` check
+  (from tapping "Odložit" on a reminder/escalation push) ran *before* the
+  check that sends today's initial reminder and clears `snoozed_until`
+  (`async_mark_reminder_sent()`). If `snoozed_until` was ever left sitting
+  in the future for any reason (a value computed before the 0.9.16 clock
+  fix, an unusually long `escalation_repeat_minutes`, ...), every future
+  reminder was blocked forever - the only code path that clears
+  `snoozed_until` was itself unreachable while snoozed, a deadlock.
+  - Reordered the checks: today's initial reminder now always sends once
+    `last_reminder_date != today`, regardless of any leftover snooze -
+    "Odložit" is only meant to postpone the *escalation* nag after a
+    reminder already went out, not block the next day's fresh one. This
+    also self-heals any snooze stuck in the future, since sending today's
+    reminder always clears it.
+
 ## [0.9.16] - 2026-08-08
 
 ### Fixed

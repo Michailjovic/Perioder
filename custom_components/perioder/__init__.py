@@ -324,13 +324,20 @@ async def _async_check_contraception_notifications(
     if notif_state["paused"]:
         return
 
-    snoozed_until = notif_state.get("snoozed_until")
-    if snoozed_until and now < datetime.fromisoformat(snoozed_until):
-        return  # postponed via the notification's "Odložit" action
-
     pill_action_data = {"actions": notifications.pill_actions(entry.entry_id)}
 
     if notif_state["last_reminder_date"] != today.isoformat():
+        # Always send *today's* initial reminder, even if snoozed_until is
+        # still sitting in the future - a snooze ("Odložit") is only meant to
+        # postpone the escalation nag after today's reminder already went
+        # out, never block the next day's fresh one. Checking
+        # last_reminder_date before the snooze check (v0.9.17) also self-heals
+        # a snooze stuck in the future for any reason (a leftover value from
+        # the pre-0.9.16 clock bug, an unusually long escalation_repeat_minutes,
+        # ...) - previously that stale value permanently blocked every future
+        # reminder, since only a successful send (async_mark_reminder_sent,
+        # right below) ever clears it - a deadlock, since a blocked reminder
+        # can never reach the call that would unblock it.
         await notifications.async_notify_owner(
             hass,
             entry,
@@ -340,6 +347,12 @@ async def _async_check_contraception_notifications(
         )
         await data.async_mark_reminder_sent(today)
         return
+
+    # Only past this point (today's initial reminder already sent) does a
+    # snooze apply - it postpones the escalation nag, not the daily reminder.
+    snoozed_until = notif_state.get("snoozed_until")
+    if snoozed_until and now < datetime.fromisoformat(snoozed_until):
+        return  # postponed via the notification's "Odložit" action
 
     grace_end = datetime.combine(today, reminder_time) + timedelta(
         minutes=settings[CONF_ESCALATION_GRACE_MINUTES]
