@@ -20,10 +20,15 @@ that reloads the whole config entry (tearing down and recreating every
 entity) on every save, which is fine for an admin occasionally tuning
 settings but far too disruptive for "I want to nudge my reminder 15 minutes
 later" from a dashboard tile. `__init__.py`'s notification scheduler already
-reads settings fresh via `get_settings()` on every run and recomputes its
-next wake from scratch (see `_compute_next_check_at()`), so a plain
-in-place `entry.options` update is picked up on its own next run without
-any reload needed.
+reads settings fresh via `get_settings()` on every run - but it only *runs*
+at whatever instant it last scheduled itself for (see `_compute_next_check_at()`
+in `__init__.py`), which has nothing to do with when this entity gets a new
+value. Confirmed live 2026-08-09: changing the reminder time here had no
+effect until whatever the scheduler's *previously* computed wake happened to
+be, silently dropping same-day changes. So this also calls
+`data.async_request_reschedule()` (set up in `__init__.py`) right after
+writing the new value, to force an immediate re-check/reschedule instead of
+waiting on a stale one.
 """
 from __future__ import annotations
 
@@ -38,13 +43,15 @@ from homeassistant.util import slugify
 
 from .const import CONF_REMINDER_TIME, DOMAIN
 from .settings import get_settings
+from .storage import PerioderData
 
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the Perioder reminder-time entity for one cycle owner."""
-    async_add_entities([ReminderTimeEntity(entry)])
+    data: PerioderData = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities([ReminderTimeEntity(entry, data)])
 
 
 class ReminderTimeEntity(TimeEntity):
@@ -54,8 +61,9 @@ class ReminderTimeEntity(TimeEntity):
     _attr_should_poll = False
     _attr_icon = "mdi:alarm"
 
-    def __init__(self, entry: ConfigEntry) -> None:
+    def __init__(self, entry: ConfigEntry, data: PerioderData) -> None:
         self._entry = entry
+        self._data = data
         self._attr_translation_key = "reminder_time"
         self.entity_id = f"time.{slugify(entry.title)}_reminder_time"
         self._attr_unique_id = f"{entry.entry_id}_reminder_time"
@@ -78,3 +86,5 @@ class ReminderTimeEntity(TimeEntity):
         new_options[CONF_REMINDER_TIME] = value.isoformat()
         self.hass.config_entries.async_update_entry(self._entry, options=new_options)
         self.async_write_ha_state()
+        if self._data.async_request_reschedule is not None:
+            await self._data.async_request_reschedule()

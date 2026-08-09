@@ -89,6 +89,7 @@ from .const import (
     EVENT_MOBILE_APP_NOTIFICATION_ACTION,
     FERTILITY_FERTILE,
     GOALS,
+    NOTIFICATION_INTENSITIES,
     REGIMEN_TYPES,
     SHARED_CALENDAR_CATEGORIES,
     SYMPTOMS,
@@ -197,10 +198,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def _async_run_and_reschedule(now=None, hass=hass, entry=entry, data=data) -> None:
         """Run one check, then arrange the next one for the next instant that
         actually matters (see `_HEARTBEAT` above) - not a fixed interval.
+
+        Both halves are wrapped in their own try/except (v0.9.21): an
+        unhandled exception here would otherwise silently kill the whole
+        chain forever - the line that reschedules the *next* wake would
+        simply never run, and nothing would tell you why the reminder just
+        stopped coming entirely on some day. A bug in one check should cost
+        at most one missed check (falls back to a plain `_HEARTBEAT` retry),
+        never every future one - see CHANGELOG.md.
         """
-        data.request_refresh()
-        await _async_check_contraception_notifications(hass, entry, data)
-        next_at = _compute_next_check_at(entry, data)
+        try:
+            data.request_refresh()
+            await _async_check_contraception_notifications(hass, entry, data)
+        except Exception:  # noqa: BLE001 - must never kill the reschedule chain, see above
+            _LOGGER.exception(
+                "Perioder: notification check failed for '%s' - will retry in %s", entry.title, _HEARTBEAT
+            )
+        try:
+            next_at = _compute_next_check_at(entry, data)
+        except Exception:  # noqa: BLE001 - same reasoning
+            _LOGGER.exception(
+                "Perioder: could not compute next check time for '%s' - falling back to heartbeat",
+                entry.title,
+            )
+            next_at = local_now() + _HEARTBEAT
         _schedule["cancel"] = async_track_point_in_time(hass, _async_run_and_reschedule, next_at)
 
     def _cancel_schedule() -> None:
@@ -208,6 +229,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _schedule["cancel"]()
 
     entry.async_on_unload(_cancel_schedule)
+    data.async_request_reschedule = _async_run_and_reschedule
     await _async_run_and_reschedule()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -634,6 +656,12 @@ def _async_register_services(hass: HomeAssistant) -> None:
         base = dict(entry.options) if entry.options else dict(entry.data)
         base.update(updates)
         hass.config_entries.async_update_entry(entry, options=base)
+        # Same staleness issue time.py's reminder-time entity had (v0.9.21) -
+        # this writes entry.options directly, same as that entity, so it
+        # needs the same nudge.
+        data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        if data is not None and data.async_request_reschedule is not None:
+            await data.async_request_reschedule()
 
     hass.services.async_register(
         DOMAIN,
@@ -663,6 +691,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 vol.Optional(CONF_RESTOCK_DAYS_BEFORE): vol.All(vol.Coerce(int), vol.Range(min=0, max=14)),
                 vol.Optional(CONF_SHARED_CALENDAR_CATEGORIES): [vol.In(SHARED_CALENDAR_CATEGORIES)],
                 vol.Optional(CONF_LOW_STOCK_THRESHOLD): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+                vol.Optional(CONF_NOTIFICATION_INTENSITY): vol.In(NOTIFICATION_INTENSITIES),
             }
         ),
     )
@@ -670,6 +699,12 @@ def _async_register_services(hass: HomeAssistant) -> None:
     async def handle_pause_notifications(call: ServiceCall) -> None:
         data = _get_entry_data(hass, call.data["config_entry_id"])
         await data.async_set_notifications_paused(call.data["paused"])
+        # Unpausing while the previous schedule was computed under "paused"
+        # (which skips every contraception-specific candidate in
+        # _compute_next_check_at()) would otherwise sit until the next plain
+        # heartbeat/midnight wake - nudge it immediately instead (v0.9.21).
+        if data.async_request_reschedule is not None:
+            await data.async_request_reschedule()
 
     hass.services.async_register(
         DOMAIN,

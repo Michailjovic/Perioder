@@ -59,3 +59,10 @@ class PauseNotificationsSwitch(SwitchEntity):
 
     async def async_turn_off(self, **kwargs) -> None:
         await self._data.async_set_notifications_paused(False)
+        # Unpausing while the previously scheduled wake was computed under
+        # "paused" (which skips every contraception-specific candidate in
+        # __init__.py's _compute_next_check_at()) would otherwise sit idle
+        # until the next plain heartbeat/midnight wake - nudge it right now
+        # instead (v0.9.21).
+        if self._data.async_request_reschedule is not None:
+            await self._data.async_request_reschedule()

@@ -5,6 +5,38 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.21] - 2026-08-09
+
+### Fixed
+
+- Root cause of "I set a new reminder time / notification intensity and
+  nothing happened" persisting even after 0.9.19's point-in-time scheduler:
+  `time.py`'s reminder-time entity and `select.py`'s notification-intensity
+  entity (both new in 0.9.19/0.9.20) write straight to `entry.options`,
+  deliberately *without* triggering Options Flow's usual full entry reload
+  (see their docstrings) - but nothing told the already-running scheduler
+  to recompute. It kept sleeping until whatever instant it had *previously*
+  computed, which could be long after (or entirely unrelated to) the value
+  someone had just changed - silently dropping the change. The existing
+  `perioder.update_settings` service (writes `entry.options` the same way,
+  pre-dates this notification engine) and the pause-notifications
+  switch/service (unpausing skips straight back to whatever stale schedule
+  was computed while paused) had the identical gap.
+  - New `PerioderData.async_request_reschedule` hook (set by
+    `__init__.py`'s `async_setup_entry`): a zero-arg async callable that
+    forces an immediate re-check + reschedule. Wired into `time.py`,
+    `select.py`, `switch.py`'s pause toggle, and the `update_settings` /
+    `pause_notifications` services.
+- Defensive hardening: `_async_run_and_reschedule()` now wraps both the
+  check itself and computing the next wake in their own try/except. Before
+  this, *any* unhandled exception on any single run (a bug, a partially
+  deployed version with mismatched files across settings.py/__init__.py,
+  ...) would have silently killed the entire reschedule chain forever -
+  nothing would fire again until the next full HA restart, with no
+  indication why. Now it logs the traceback and falls back to a plain
+  `_HEARTBEAT` retry instead, so a bug in one check costs at most one
+  missed check, never every future one.
+
 ## [0.9.20] - 2026-08-09
 
 ### Added

@@ -105,6 +105,21 @@ class PerioderData:
         self.store: Store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY_PREFIX}_{entry_id}")
         self.data: PerioderStorageData | None = None
         self._listeners: list[Any] = []
+        # Set by __init__.py's async_setup_entry once the notification
+        # engine's scheduler exists (v0.9.21) - a zero-arg async callable
+        # that re-checks and immediately reschedules it, for entities that
+        # write straight to entry.options without going through Options
+        # Flow's reload (time.py's reminder-time entity, select.py's
+        # notification-intensity entity). Without this, changing those from
+        # the cycle owner's own dashboard had no effect until whatever the
+        # *previously* scheduled wake happened to be - which could be hours
+        # away or after the moment that just got configured, silently
+        # dropping the change. Deliberately NOT wired through
+        # add_listener()/_notify_listeners() below: this same class's own
+        # request_refresh() already calls _notify_listeners() on every
+        # scheduler tick, which would immediately re-trigger a listener
+        # calling back into the scheduler - a self-reentrant loop.
+        self.async_request_reschedule: Any = None
 
     async def async_load(self) -> None:
         """Load data from storage, backfilling any keys missing from an older schema."""

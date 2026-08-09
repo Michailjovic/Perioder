@@ -35,7 +35,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Perioder select entities for one cycle owner."""
     data: PerioderData = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([PmsOverrideSelect(entry, data), NotificationIntensitySelect(entry)])
+    async_add_entities([PmsOverrideSelect(entry, data), NotificationIntensitySelect(entry, data)])
 
 
 class PmsOverrideSelect(SelectEntity):
@@ -74,7 +74,9 @@ class PmsOverrideSelect(SelectEntity):
 class NotificationIntensitySelect(SelectEntity):
     """How pushy the daily reminder + escalation should be. A *setting*
     (see settings.py), not runtime state - reads/writes entry.options
-    directly, same as time.py's ReminderTimeEntity. See module docstring.
+    directly, same as time.py's ReminderTimeEntity (including calling
+    `data.async_request_reschedule()` after writing, for the same reason -
+    see that entity's module docstring for why it's needed).
     """
 
     _attr_has_entity_name = True
@@ -82,8 +84,9 @@ class NotificationIntensitySelect(SelectEntity):
     _attr_icon = "mdi:volume-vibrate"
     _attr_options = NOTIFICATION_INTENSITIES
 
-    def __init__(self, entry: ConfigEntry) -> None:
+    def __init__(self, entry: ConfigEntry, data: PerioderData) -> None:
         self._entry = entry
+        self._data = data
         self._attr_translation_key = "notification_intensity"
         self.entity_id = f"select.{slugify(entry.title)}_notification_intensity"
         self._attr_unique_id = f"{entry.entry_id}_notification_intensity"
@@ -102,3 +105,5 @@ class NotificationIntensitySelect(SelectEntity):
         new_options[CONF_NOTIFICATION_INTENSITY] = option
         self.hass.config_entries.async_update_entry(self._entry, options=new_options)
         self.async_write_ha_state()
+        if self._data.async_request_reschedule is not None:
+            await self._data.async_request_reschedule()
