@@ -29,6 +29,7 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_CYCLE_LENGTH,
+    CONF_DEBUG_NOTIFICATIONS,
     CONF_ESCALATION_GRACE_MINUTES,
     CONF_ESCALATION_MAX_COUNT,
     CONF_ESCALATION_REPEAT_MINUTES,
@@ -46,6 +47,7 @@ from .const import (
     CONF_RESTOCK_DAYS_BEFORE,
     CONF_SHARED_CALENDAR_CATEGORIES,
     DEFAULT_CYCLE_LENGTH,
+    DEFAULT_DEBUG_NOTIFICATIONS,
     DEFAULT_ESCALATION_GRACE_MINUTES,
     DEFAULT_ESCALATION_MAX_COUNT,
     DEFAULT_ESCALATION_REPEAT_MINUTES,
@@ -145,6 +147,14 @@ def _settings_schema(defaults: dict[str, Any]) -> vol.Schema:
             vol.Optional(
                 CONF_LOW_STOCK_THRESHOLD, default=defaults[CONF_LOW_STOCK_THRESHOLD]
             ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+            # v0.9.27, deliberately last: on/off for the persistent_
+            # notification + diagnostic sensor that _async_update_debug_trace()
+            # (see __init__.py) writes after every notification-engine check.
+            # Kept separate from every setting above it since it's not about
+            # cycle/contraception behaviour at all, just diagnostics.
+            vol.Required(
+                CONF_DEBUG_NOTIFICATIONS, default=defaults.get(CONF_DEBUG_NOTIFICATIONS, DEFAULT_DEBUG_NOTIFICATIONS)
+            ): selector.BooleanSelector(),
         }
     )
 
@@ -209,6 +219,7 @@ class PerioderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_RESTOCK_DAYS_BEFORE: DEFAULT_RESTOCK_DAYS_BEFORE,
             CONF_SHARED_CALENDAR_CATEGORIES: DEFAULT_SHARED_CALENDAR_CATEGORIES,
             CONF_LOW_STOCK_THRESHOLD: DEFAULT_LOW_STOCK_THRESHOLD,
+            CONF_DEBUG_NOTIFICATIONS: DEFAULT_DEBUG_NOTIFICATIONS,
         }
 
         schema = vol.Schema({vol.Required(CONF_NAME): str}).extend(_settings_schema(defaults).schema)
@@ -248,6 +259,7 @@ class PerioderOptionsFlow(OptionsFlowWithReload):
             self._options.setdefault(CONF_SHARED_CALENDAR_CATEGORIES, DEFAULT_SHARED_CALENDAR_CATEGORIES)
             self._options.setdefault(CONF_LOW_STOCK_THRESHOLD, DEFAULT_LOW_STOCK_THRESHOLD)
             self._options.setdefault(CONF_NOTIFICATION_INTENSITY, DEFAULT_NOTIFICATION_INTENSITY)
+            self._options.setdefault(CONF_DEBUG_NOTIFICATIONS, DEFAULT_DEBUG_NOTIFICATIONS)
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         self._ensure_working_copy()

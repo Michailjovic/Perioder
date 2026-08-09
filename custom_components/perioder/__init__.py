@@ -75,6 +75,7 @@ from .const import (
     CATEGORY_CONTRACEPTION_RESTOCK,
     CATEGORY_MISSED_DOSE,
     CONF_CYCLE_LENGTH,
+    CONF_DEBUG_NOTIFICATIONS,
     CONF_ESCALATION_GRACE_MINUTES,
     CONF_ESCALATION_MAX_COUNT,
     CONF_ESCALATION_REPEAT_MINUTES,
@@ -407,11 +408,18 @@ async def _async_update_debug_trace(
     - `data.debug_trace`: a plain dict, read by
       `sensor.*_notification_debug`'s attributes (see sensor.py) - a normal
       entity, browsable in Developer Tools > States or a dashboard card,
-      keeps the last value until overwritten (no bell-icon clutter).
+      keeps the last value until overwritten (no bell-icon clutter). Always
+      kept up to date regardless of the toggle below - it's just an entity
+      state, nothing to turn off.
     - A `persistent_notification` with a *fixed* `notification_id` per
       entry, so every run updates the same one in place instead of spamming
       the bell icon - the fastest way to check "what just happened" without
-      hunting for an entity or turning on debug logging first.
+      hunting for an entity or turning on debug logging first. Gated by
+      `debug_notifications_enabled` (v0.9.27, Options Flow > Edit settings,
+      last field) - this is the one people actually asked to be able to
+      switch off once things are working; if it's off and a notification
+      from an earlier "on" period is still showing, it's dismissed here too
+      instead of just left stale on the bell icon.
 
     Wrapped in its own try/except: a debug aid must never itself be the
     thing that breaks the actual notification engine.
@@ -424,21 +432,27 @@ async def _async_update_debug_trace(
         "next_check_reason": next_reason,
     }
     data.request_refresh()
+    notification_id = f"perioder_debug_{entry.entry_id}"
     try:
-        await hass.services.async_call(
-            "persistent_notification",
-            "create",
-            {
-                "title": f"Perioder – {entry.title}: poslední kontrola",
-                "message": (
-                    f"**{checked_at.strftime('%H:%M:%S')}**: {outcome}\n\n"
-                    f"Další kontrola naplánována na **{next_at.strftime('%H:%M:%S')}** ({next_reason})."
-                ),
-                "notification_id": f"perioder_debug_{entry.entry_id}",
-            },
-        )
+        if get_settings(entry)[CONF_DEBUG_NOTIFICATIONS]:
+            await hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": f"Perioder – {entry.title}: poslední kontrola",
+                    "message": (
+                        f"**{checked_at.strftime('%H:%M:%S')}**: {outcome}\n\n"
+                        f"Další kontrola naplánována na **{next_at.strftime('%H:%M:%S')}** ({next_reason})."
+                    ),
+                    "notification_id": notification_id,
+                },
+            )
+        else:
+            await hass.services.async_call(
+                "persistent_notification", "dismiss", {"notification_id": notification_id}
+            )
     except Exception:  # noqa: BLE001 - see docstring
-        _LOGGER.exception("Perioder: could not write debug persistent_notification for '%s'", entry.title)
+        _LOGGER.exception("Perioder: could not update debug persistent_notification for '%s'", entry.title)
 
 
 async def _async_check_contraception_notifications(
@@ -798,6 +812,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 vol.Optional(CONF_SHARED_CALENDAR_CATEGORIES): [vol.In(SHARED_CALENDAR_CATEGORIES)],
                 vol.Optional(CONF_LOW_STOCK_THRESHOLD): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
                 vol.Optional(CONF_NOTIFICATION_INTENSITY): vol.In(NOTIFICATION_INTENSITIES),
+                vol.Optional(CONF_DEBUG_NOTIFICATIONS): cv.boolean,
             }
         ),
     )

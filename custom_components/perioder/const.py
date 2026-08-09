@@ -33,12 +33,21 @@ CONF_LOW_STOCK_THRESHOLD = "low_stock_threshold"
 # Config / options keys - notification intensity (v0.9.20)
 CONF_NOTIFICATION_INTENSITY = "notification_intensity"
 
+# Config / options keys - debug trace on/off (v0.9.27) - the persistent_
+# notification + sensor.*_notification_debug that _async_update_debug_trace()
+# (see __init__.py) writes after every check. Default stays on: it's what
+# made every notification bug this integration has ever had diagnosable
+# without guessing - but once things are working it's a standing bell-icon
+# notification some people would rather not see, hence a real on/off.
+CONF_DEBUG_NOTIFICATIONS = "debug_notifications_enabled"
+
 DEFAULT_CYCLE_LENGTH = 28
 DEFAULT_PERIOD_DURATION = 5
 DEFAULT_GOAL = "track"
 DEFAULT_PMS_WINDOW_DAYS = 4
 DEFAULT_REGIMEN_TYPE = "21_7"
 DEFAULT_REMINDER_TIME = "21:00:00"
+DEFAULT_DEBUG_NOTIFICATIONS = True
 
 # Grace period before "pending" becomes "missed" (also used by pill_status()
 # for the sensor, so the displayed status and the notification engine always

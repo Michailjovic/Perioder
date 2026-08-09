@@ -5,6 +5,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.27] - 2026-08-09
+
+### Added
+
+- On/off toggle for the debug `persistent_notification` that
+  `_async_update_debug_trace()` writes after every notification-engine
+  check (0.9.22) - Options Flow > Edit settings, last field
+  ("debug_notifications_enabled", default on). It was useful precisely
+  because it made every bug this session diagnosable without guessing, but
+  once things are working it's a standing bell-icon notification, so it
+  needed a real GUI way to quiet it - not just deleting it by hand each
+  time. Turning it off also dismisses whatever debug notification is
+  currently showing, instead of leaving a stale one behind.
+  `sensor.*_notification_debug` (the diagnostic entity) is unaffected by
+  this toggle and keeps updating either way - it's not user-facing noise,
+  just an entity state. Also settable via `perioder.update_settings`
+  (`debug_notifications_enabled: true/false`).
+
 ## [0.9.26] - 2026-08-09
 
 ### Fixed
