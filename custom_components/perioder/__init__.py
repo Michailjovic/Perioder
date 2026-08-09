@@ -159,7 +159,7 @@ _HEARTBEAT = timedelta(minutes=5)
 # ceiling - nothing contraception-notification-specific ever needs a wake
 # sooner than that, but the plain "pack running low" / "stock low" checks
 # (not otherwise time-anchored to anything) still get re-evaluated at least
-# this often. See `_async_schedule_next_check()`.
+# this often. See `_compute_next_check_at()` / `_async_run_and_reschedule()`.
 
 
 # Key under which the shared (not per-entry) mobile_app_notification_action
@@ -209,20 +209,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """
         try:
             data.request_refresh()
-            await _async_check_contraception_notifications(hass, entry, data)
-        except Exception:  # noqa: BLE001 - must never kill the reschedule chain, see above
+            outcome = await _async_check_contraception_notifications(hass, entry, data)
+        except Exception as err:  # noqa: BLE001 - must never kill the reschedule chain, see above
             _LOGGER.exception(
                 "Perioder: notification check failed for '%s' - will retry in %s", entry.title, _HEARTBEAT
             )
+            outcome = f"CHYBA při kontrole: {err} (detail v Nastavení > Systém > Logy)"
         try:
-            next_at = _compute_next_check_at(entry, data)
-        except Exception:  # noqa: BLE001 - same reasoning
+            next_at, next_reason = _compute_next_check_at(entry, data)
+        except Exception as err:  # noqa: BLE001 - same reasoning
             _LOGGER.exception(
                 "Perioder: could not compute next check time for '%s' - falling back to heartbeat",
                 entry.title,
             )
             next_at = local_now() + _HEARTBEAT
+            next_reason = f"záložní kontrola za {_HEARTBEAT} (CHYBA při plánování: {err})"
         _schedule["cancel"] = async_track_point_in_time(hass, _async_run_and_reschedule, next_at)
+        await _async_update_debug_trace(hass, entry, data, outcome, next_at, next_reason)
 
     def _cancel_schedule() -> None:
         if _schedule["cancel"] is not None:
@@ -295,7 +298,7 @@ def _next_local_midnight(now: datetime) -> datetime:
     return datetime.combine(now.date() + timedelta(days=1), time.min)
 
 
-def _compute_next_check_at(entry: ConfigEntry, data: PerioderData) -> datetime:
+def _compute_next_check_at(entry: ConfigEntry, data: PerioderData) -> tuple[datetime, str]:
     """The next instant `_async_check_contraception_notifications()` actually
     needs to run again - mirroring that function's own branching (reminder_time,
     a live snooze, the grace deadline, the next escalation) so the scheduled
@@ -306,11 +309,19 @@ def _compute_next_check_at(entry: ConfigEntry, data: PerioderData) -> datetime:
     finds nothing to do yet, and reschedules itself correctly from the fresh
     state it reads at that point - self-healing, never a missed or duplicate
     notification, see `_async_run_and_reschedule()` in `async_setup_entry()`.
+
+    Returns `(when, why)` (v0.9.22) - `why` is a short Czech label for
+    whichever candidate won, surfaced in the debug trace (see
+    `_async_update_debug_trace()`) so it's visible *before* something goes
+    wrong, not just after.
     """
     now = local_now()
     today = local_today()
     settings = get_settings(entry)
-    candidates = [now + _HEARTBEAT, _next_local_midnight(now)]
+    candidates: list[tuple[datetime, str]] = [
+        (now + _HEARTBEAT, "pravidelná kontrola (nejdéle za 5 min)"),
+        (_next_local_midnight(now), "půlnoc (přechod na nový den)"),
+    ]
 
     contraception = data.contraception
     if contraception["active"] and contraception["pack_start_date"]:
@@ -325,17 +336,17 @@ def _compute_next_check_at(entry: ConfigEntry, data: PerioderData) -> datetime:
 
             if not already_taken:
                 if notif_state["last_reminder_date"] != today.isoformat():
-                    candidates.append(reminder_dt)
+                    candidates.append((reminder_dt, f"denní připomínka ({reminder_dt.strftime('%H:%M')})"))
                 else:
                     snoozed_until = notif_state.get("snoozed_until")
                     if snoozed_until and now < datetime.fromisoformat(snoozed_until):
-                        candidates.append(datetime.fromisoformat(snoozed_until))
+                        candidates.append((datetime.fromisoformat(snoozed_until), "konec odložení (Odložit)"))
                     else:
                         grace_end = reminder_dt + timedelta(
                             minutes=settings[CONF_ESCALATION_GRACE_MINUTES]
                         )
                         if notif_state["escalation_count"] == 0:
-                            candidates.append(grace_end)
+                            candidates.append((grace_end, "konec grace periody -> 1. eskalace"))
                         elif notif_state["escalation_count"] < settings[CONF_ESCALATION_MAX_COUNT]:
                             last_escalation_at = notif_state["last_escalation_at"]
                             base = (
@@ -343,26 +354,86 @@ def _compute_next_check_at(entry: ConfigEntry, data: PerioderData) -> datetime:
                                 if last_escalation_at
                                 else grace_end
                             )
+                            next_num = notif_state["escalation_count"] + 1
                             candidates.append(
-                                base + timedelta(minutes=settings[CONF_ESCALATION_REPEAT_MINUTES])
+                                (
+                                    base + timedelta(minutes=settings[CONF_ESCALATION_REPEAT_MINUTES]),
+                                    f"eskalace #{next_num}",
+                                )
                             )
 
-    return max(min(candidates), now + timedelta(seconds=1))
+    when, why = min(candidates, key=lambda c: c[0])
+    return max(when, now + timedelta(seconds=1)), why
+
+
+async def _async_update_debug_trace(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    data: PerioderData,
+    outcome: str,
+    next_at: datetime,
+    next_reason: str,
+) -> None:
+    """Surface what the notification engine just did and what it's planning
+    next (v0.9.22). The whole point is being able to answer "why didn't it
+    fire" by looking at something in Home Assistant, not by pasting logs
+    into a chat and waiting.
+
+    - `data.debug_trace`: a plain dict, read by
+      `sensor.*_notification_debug`'s attributes (see sensor.py) - a normal
+      entity, browsable in Developer Tools > States or a dashboard card,
+      keeps the last value until overwritten (no bell-icon clutter).
+    - A `persistent_notification` with a *fixed* `notification_id` per
+      entry, so every run updates the same one in place instead of spamming
+      the bell icon - the fastest way to check "what just happened" without
+      hunting for an entity or turning on debug logging first.
+
+    Wrapped in its own try/except: a debug aid must never itself be the
+    thing that breaks the actual notification engine.
+    """
+    checked_at = local_now()
+    data.debug_trace = {
+        "checked_at": checked_at.isoformat(timespec="seconds"),
+        "outcome": outcome,
+        "next_check_at": next_at.isoformat(timespec="seconds"),
+        "next_check_reason": next_reason,
+    }
+    data.request_refresh()
+    try:
+        await hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": f"Perioder – {entry.title}: poslední kontrola",
+                "message": (
+                    f"**{checked_at.strftime('%H:%M:%S')}**: {outcome}\n\n"
+                    f"Další kontrola naplánována na **{next_at.strftime('%H:%M:%S')}** ({next_reason})."
+                ),
+                "notification_id": f"perioder_debug_{entry.entry_id}",
+            },
+        )
+    except Exception:  # noqa: BLE001 - see docstring
+        _LOGGER.exception("Perioder: could not write debug persistent_notification for '%s'", entry.title)
 
 
 async def _async_check_contraception_notifications(
     hass: HomeAssistant, entry: ConfigEntry, data: PerioderData
-) -> None:
+) -> str:
     """Daily reminder + escalation to the owner, missed-dose alert to supporters, pack restock notice.
 
     Called at the exact instants `_compute_next_check_at()` computes (v0.9.19)
     - `reminder_time`, the grace deadline, each escalation, or a live snooze -
     not on a fixed polling interval, so this fires right at the configured
     moment rather than merely "soon after" it.
+
+    Returns a short, human-readable Czech summary of what this particular
+    run did (or precisely why it did nothing) - v0.9.22, purely for the
+    debug trace (`_async_update_debug_trace()`) so "why didn't it fire" is
+    answerable by reading a notification/entity, not by guessing from code.
     """
     contraception = data.contraception
     if not contraception["active"] or not contraception["pack_start_date"]:
-        return
+        return "sledování antikoncepce není aktivní (nebo nemá pack_start_date)"
 
     notif_state = data.notifications
     settings = get_settings(entry)
@@ -370,6 +441,8 @@ async def _async_check_contraception_notifications(
     now = local_now()
     reminder_time = time.fromisoformat(settings[CONF_REMINDER_TIME])
     pack_start = dt_date.fromisoformat(contraception["pack_start_date"])
+
+    side_notes: list[str] = []
 
     # -- pack running low (once per pack) --------------------------------
     day = pm.day_in_pack(pack_start, today, settings[CONF_PACK_SIZE], settings[CONF_PAUSE_DAYS])
@@ -399,6 +472,7 @@ async def _async_check_contraception_notifications(
             detailed_message=f"Antikoncepční balení brzy dojde - zbývá {days_left} dní aktivních tablet.",
         )
         await data.async_mark_restock_notified(current_cycle_start)
+        side_notes.append("odesláno upozornění na docházející balení")
 
     # -- physical stock low, once until restocked (v0.8.0) -----------------
     # Separate signal from the pack-days-remaining check above: that one is
@@ -425,20 +499,23 @@ async def _async_check_contraception_notifications(
             detailed_message=f"Doma zbývá jen {data.pills_in_stock} tablet(y) antikoncepce.",
         )
         await data.async_mark_low_stock_notified()
+        side_notes.append("odesláno upozornění na nízkou zásobu")
+
+    prefix = (", ".join(side_notes) + "; ") if side_notes else ""
 
     # -- daily reminder / escalation / missed-dose alert -------------------
     if not pm.is_pill_day(day, settings[CONF_PACK_SIZE]):
-        return  # pause day, nothing to remind about today
+        return prefix + "dnes je pauza balení, není co připomínat"
     logged_today = contraception["pill_log"].get(today.isoformat())
     if logged_today is not None and logged_today["status"] == "taken":
-        return  # confirmed taken - nothing left to do today
+        return prefix + "dnešní dávka je už potvrzená jako vzatá"
     # A "missed" entry does NOT stop here - escalation keeps nagging the
     # owner (up to escalation_max_count) even after the day's status has
     # flipped to "missed"; only an actual "taken" confirmation ends it.
     if now < datetime.combine(today, reminder_time):
-        return  # not reminder time yet
+        return prefix + f"ještě není čas denní připomínky (nastaveno na {reminder_time.strftime('%H:%M')})"
     if notif_state["paused"]:
-        return
+        return prefix + "notifikace jsou pozastavené (switch.*_pause_notifications je zapnutý)"
 
     # v0.9.20: merges in the configured push intensity (quiet/normal/urgent/
     # critical - see notifications.INTENSITY_DATA) alongside the actionable
@@ -469,19 +546,19 @@ async def _async_check_contraception_notifications(
             data=pill_action_data,
         )
         await data.async_mark_reminder_sent(today)
-        return
+        return prefix + "odeslána denní připomínka ownerovi"
 
     # Only past this point (today's initial reminder already sent) does a
     # snooze apply - it postpones the escalation nag, not the daily reminder.
     snoozed_until = notif_state.get("snoozed_until")
     if snoozed_until and now < datetime.fromisoformat(snoozed_until):
-        return  # postponed via the notification's "Odložit" action
+        return prefix + f"odloženo přes 'Odložit' do {datetime.fromisoformat(snoozed_until).strftime('%H:%M')}"
 
     grace_end = datetime.combine(today, reminder_time) + timedelta(
         minutes=settings[CONF_ESCALATION_GRACE_MINUTES]
     )
     if now < grace_end:
-        return  # still within the grace period, not "missed" yet
+        return prefix + f"připomínka odeslána, grace perioda běží do {grace_end.strftime('%H:%M')}"
 
     if notif_state["escalation_count"] == 0:
         # first time crossing into "missed" today - this is the moment the
@@ -512,10 +589,10 @@ async def _async_check_contraception_notifications(
             detailed_message=f"Dnešní dávka antikoncepce nebyla potvrzena.{fertility_note}",
         )
         await data.async_mark_escalation_sent(now)
-        return
+        return prefix + "dávka označena jako vynechaná, odeslána 1. eskalace"
 
     if notif_state["escalation_count"] >= settings[CONF_ESCALATION_MAX_COUNT]:
-        return
+        return prefix + f"dosažen max. počet eskalací ({settings[CONF_ESCALATION_MAX_COUNT]}), dál se nenaguje"
 
     last_escalation_at = notif_state["last_escalation_at"]
     last_escalation_dt = datetime.fromisoformat(last_escalation_at) if last_escalation_at else grace_end
@@ -529,6 +606,10 @@ async def _async_check_contraception_notifications(
             data=pill_action_data,
         )
         await data.async_mark_escalation_sent(now)
+        return prefix + f"odeslána eskalace č. {notif_state['escalation_count'] + 1}"
+
+    minutes_left = round(settings[CONF_ESCALATION_REPEAT_MINUTES] - minutes_since)
+    return prefix + f"čekám na další eskalaci (za cca {minutes_left} min)"
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

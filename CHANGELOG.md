@@ -5,6 +5,27 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.22] - 2026-08-09
+
+### Added
+
+- Full debug trace for the notification engine, so "why didn't it fire" is
+  answerable from inside Home Assistant instead of by pasting logs into a
+  chat: `_async_check_contraception_notifications()` and
+  `_compute_next_check_at()` now both return a short Czech explanation of
+  what they did/decided (which branch, which value tipped it) instead of
+  silently returning `None`. Surfaced two ways after every single run,
+  successful or not:
+  - `sensor.*_notification_debug` (new, diagnostic category): state = last
+    outcome, attributes = `checked_at`, `next_check_at`, `next_check_reason`.
+  - A `persistent_notification` with a fixed `notification_id` per entry
+    (updates in place, doesn't spam the bell icon) showing the same thing.
+  Both added to `dashboard_alina_admin.yaml` / `dashboard_test_admin.yaml`
+  (a markdown card unpacks the attributes into readable text). The daily
+  reminder/notification-intensity entities were also added to the admin
+  dashboard's "Ovládání" section - they'd only been on the day-to-day one
+  so far.
+
 ## [0.9.21] - 2026-08-09
 
 ### Fixed

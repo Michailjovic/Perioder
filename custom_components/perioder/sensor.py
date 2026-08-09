@@ -13,6 +13,7 @@ from datetime import date, datetime, time
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -41,6 +42,7 @@ async def async_setup_entry(
             PackDaysRemainingSensor(entry, data),
             LastSymptomSensor(entry, data),
             SupportersSensor(entry, data),
+            NotificationDebugSensor(entry, data),
         ]
     )
 
@@ -268,4 +270,35 @@ class SupportersSensor(_PerioderSensorBase):
                 }
                 for supporter in get_supporters(self._entry)
             ]
+        }
+
+
+class NotificationDebugSensor(_PerioderSensorBase):
+    """What the notification engine's last run did, and what it's planning
+    next (v0.9.22) - see `_async_update_debug_trace()` in `__init__.py`,
+    which is what actually fills `data.debug_trace`. Diagnostic-category so
+    it doesn't clutter the main device card, but is right there in
+    Developer Tools > States (or a dashboard card, e.g. for Michael's admin
+    dashboard) whenever "why didn't it fire" needs answering - no debug
+    logging to enable, no log file to find, matches the same information a
+    `persistent_notification` also gets on every run.
+    """
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, entry: ConfigEntry, data: PerioderData) -> None:
+        super().__init__(entry, data, "notification_debug")
+
+    @property
+    def native_value(self) -> str:
+        outcome = self._data.debug_trace.get("outcome")
+        return outcome if outcome else "zatím žádná kontrola neproběhla"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        trace = self._data.debug_trace
+        return {
+            "checked_at": trace.get("checked_at", ""),
+            "next_check_at": trace.get("next_check_at", ""),
+            "next_check_reason": trace.get("next_check_reason", ""),
         }

@@ -184,6 +184,9 @@
       },
       "supporters": {
         "name": "Supporters"
+      },
+      "notification_debug": {
+        "name": "Notification debug"
       }
     },
     "binary_sensor": {

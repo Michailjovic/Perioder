@@ -184,6 +184,9 @@
       },
       "supporters": {
         "name": "Podporovatelé"
+      },
+      "notification_debug": {
+        "name": "Diagnostika notifikací"
       }
     },
     "binary_sensor": {

@@ -120,6 +120,11 @@ class PerioderData:
         # scheduler tick, which would immediately re-trigger a listener
         # calling back into the scheduler - a self-reentrant loop.
         self.async_request_reschedule: Any = None
+        # Set by __init__.py's _async_update_debug_trace() after every
+        # notification-engine run (v0.9.22) - read by
+        # sensor.*_notification_debug (sensor.py). Empty until the first run
+        # completes (normally within seconds of HA starting).
+        self.debug_trace: dict[str, Any] = {}
 
     async def async_load(self) -> None:
         """Load data from storage, backfilling any keys missing from an older schema."""

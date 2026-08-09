@@ -96,6 +96,28 @@ cards:
             name: "Testovací notifikace (obchází čas připomínky)"
           - entity: switch.test_pause_notifications
             name: Pozastavit notifikace
+          - entity: time.test_reminder_time
+            name: Čas denní připomínky
+          - entity: select.test_notification_intensity
+            name: Intenzita upozornění
+
+      - type: entities
+        title: Diagnostika notifikací
+        entities:
+          - entity: sensor.test_notification_debug
+            name: Poslední výsledek kontroly
+            secondary_info: last-changed
+
+      - type: markdown
+        title: Detail poslední kontroly
+        content: >-
+          {% set e = 'sensor.test_notification_debug' %}
+          **Kontrola proběhla:** {{ state_attr(e, 'checked_at') or '–' }}
+
+          **Výsledek:** {{ states(e) }}
+
+          **Další kontrola:** {{ state_attr(e, 'next_check_at') or '–' }}
+          ({{ state_attr(e, 'next_check_reason') or '–' }})
 
       - type: entities
         title: Symptomy
