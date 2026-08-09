@@ -63,6 +63,7 @@ from homeassistant.const import Platform
 from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.event import async_track_point_in_time
+from homeassistant.helpers.start import async_at_started
 from homeassistant.util import slugify
 
 from . import cycle_math as cm
@@ -237,7 +238,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entry.async_on_unload(_cancel_schedule)
     data.async_request_reschedule = _async_run_and_reschedule
-    await _async_run_and_reschedule()
+
+    async def _async_initial_run(_hass: HomeAssistant) -> None:
+        # v0.9.26: NOT `await _async_run_and_reschedule()` directly here -
+        # confirmed live 2026-08-09 that running the first check inline,
+        # during Perioder's own async_setup_entry, races other integrations'
+        # startup. Perioder has no formal dependency on `mobile_app` (nor
+        # should it - it's optional), so on a full HA restart Perioder can
+        # finish setting up, and this immediate first check can run, BEFORE
+        # `mobile_app` has registered its `notify.mobile_app_*` services -
+        # producing exactly the confusing "no legacy notify.mobile_app_*
+        # service found for device ..." log even though the device is
+        # configured correctly and the same lookup succeeds moments later
+        # (e.g. pressing "Test notification" once HA has finished starting).
+        # `async_at_started()` runs the callback once HA has fully started -
+        # immediately, if it already has (the normal case: entry
+        # reload/first setup while HA is already running) - so this only
+        # actually delays anything on a full HA restart, which is exactly
+        # the case that needs it.
+        await _async_run_and_reschedule()
+
+    entry.async_on_unload(async_at_started(hass, _async_initial_run))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

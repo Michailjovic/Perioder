@@ -5,6 +5,55 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.26] - 2026-08-09
+
+### Fixed
+
+- The real explanation behind the "no legacy notify.mobile_app_* service
+  found" failure that 0.9.25's fix didn't actually reach: confirmed live
+  2026-08-09 that pressing "Test notification" *after* the device that had
+  just failed the real reminder succeeded immediately, using the exact same
+  device_id and the exact same (0.9.24) lookup code - impossible if the
+  slug itself were wrong, since both calls resolve it identically. The
+  actual cause is a startup race: `async_setup_entry()` ran the notification
+  engine's first check *synchronously*, before returning - which, on a full
+  HA restart (as opposed to a plain entry reload from Options Flow), can
+  finish before the `mobile_app` integration has registered its
+  `notify.mobile_app_*` services, since Perioder has no formal dependency on
+  it (deliberately - it's optional). The manual test minutes later
+  succeeded simply because HA had finished starting by then. Fixed by
+  deferring that first run to `homeassistant.helpers.start.async_at_started()`,
+  which runs it immediately if HA has already finished starting (the normal
+  entry-reload case) or waits for `EVENT_HOMEASSISTANT_STARTED` (the full
+  restart case) - so the very first check no longer races other
+  integrations' own startup. 0.9.25's slug-resolution fix (trying the
+  `mobile_app` config entry's registered `device_name` before
+  `device.name`/`device.name_by_user`) is still correct and stays - it's a
+  real, independent hardening for actual device renames, it just wasn't
+  what caused this particular failure.
+
+## [0.9.25] - 2026-08-09
+
+### Fixed
+
+- `_legacy_notify_service()` (0.9.24) slugified the device registry's
+  `device.name` to guess the legacy `notify.mobile_app_<slug>` service
+  name. Confirmed live 2026-08-09 that this is the wrong source: with
+  `owner_notify_device` correctly set to a device renamed to "1plus" in
+  Settings > Devices, the reminder still failed with "no legacy
+  notify.mobile_app_* service found for device ... - notification not
+  sent". The legacy service's slug is fixed at `mobile_app` registration
+  time from `config_entry.data["device_name"]` (the push-registration
+  name) and never changes when the device is later renamed in the UI -
+  `device.name`/`device.name_by_user` can legitimately be a different
+  string by then. `_legacy_notify_service()` now tries, in order: every
+  `mobile_app` config entry attached to the device (its stored
+  `device_name` - the actual source the slug was built from), then
+  `device.name_by_user`, then `device.name`, and uses the first one that
+  resolves to a service HA actually has registered. Also logs every slug
+  it tried (debug level) when none match, so a future case like this shows
+  up directly in the log instead of a bare "not found".
+
 ## [0.9.24] - 2026-08-09
 
 ### Fixed

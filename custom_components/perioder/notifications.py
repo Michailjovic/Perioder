@@ -140,14 +140,60 @@ def _legacy_notify_service(hass: HomeAssistant, device_id: str) -> str | None:
     """The legacy per-device `notify.mobile_app_<slug>` service name for a
     mobile_app device, if one is currently registered - see module
     docstring for why this (not `notify.send_message`) is what actually
-    gets called. `<slug>` is the device's own name, slugified - the same
-    convention the `mobile_app` integration has always used to register it.
+    gets called.
+
+    v0.9.24 slugified `device.name` (the device registry's own name field)
+    - wrong, confirmed live 2026-08-09: a device the user later renamed via
+    Settings > Devices ("1plus") still failed with "no legacy
+    notify.mobile_app_* service found", even though it was correctly
+    selected as `owner_notify_device`. The legacy service's slug is fixed
+    at mobile_app registration time from the *push-registration* device
+    name (`config_entry.data["device_name"]`, the `mobile_app` integration's
+    own `ATTR_DEVICE_NAME`) - it does NOT get renamed when the user renames
+    the device afterwards in the UI. `device.name`/`device.name_by_user`
+    can legitimately differ from that original registration name, so
+    slugifying either of them can point at a service that was never
+    created.
+
+    Fixed by trying, in order of decreasing authority: every mobile_app
+    config entry's own stored `device_name` (the actual source the legacy
+    service slug was built from), then `device.name_by_user`, then
+    `device.name` - first one that resolves to a service that actually
+    exists wins. A device normally only has one mobile_app config entry, so
+    in practice this is "try the real registration name, then fall back to
+    whatever's shown in the UI".
     """
     device = dr.async_get(hass).async_get(device_id)
-    if device is None or not device.name:
+    if device is None:
         return None
-    service = f"mobile_app_{slugify(device.name)}"
-    return service if hass.services.has_service("notify", service) else None
+
+    candidates: list[str] = []
+    for entry_id in device.config_entries:
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if entry is not None and entry.domain == "mobile_app":
+            registered_name = entry.data.get("device_name")
+            if registered_name:
+                candidates.append(registered_name)
+    if device.name_by_user:
+        candidates.append(device.name_by_user)
+    if device.name:
+        candidates.append(device.name)
+
+    tried: list[str] = []
+    for name in candidates:
+        service = f"mobile_app_{slugify(name)}"
+        if service in tried:
+            continue
+        tried.append(service)
+        if hass.services.has_service("notify", service):
+            return service
+
+    _LOGGER.debug(
+        "Perioder: no legacy notify.mobile_app_* service matched device %s - tried %s",
+        device_id,
+        tried,
+    )
+    return None
 
 
 async def async_send_to_device(
