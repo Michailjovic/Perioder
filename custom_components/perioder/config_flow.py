@@ -35,6 +35,7 @@ from .const import (
     CONF_GOAL,
     CONF_LOW_STOCK_THRESHOLD,
     CONF_NAME,
+    CONF_NOTIFICATION_INTENSITY,
     CONF_OWNER_NOTIFY_DEVICE,
     CONF_PACK_SIZE,
     CONF_PAUSE_DAYS,
@@ -50,6 +51,7 @@ from .const import (
     DEFAULT_ESCALATION_REPEAT_MINUTES,
     DEFAULT_GOAL,
     DEFAULT_LOW_STOCK_THRESHOLD,
+    DEFAULT_NOTIFICATION_INTENSITY,
     DEFAULT_PERIOD_DURATION,
     DEFAULT_PMS_WINDOW_DAYS,
     DEFAULT_REGIMEN_TYPE,
@@ -60,6 +62,7 @@ from .const import (
     DETAIL_LEVELS,
     DOMAIN,
     GOALS,
+    NOTIFICATION_INTENSITIES,
     REGIMEN_PACK_DEFAULTS,
     REGIMEN_TYPES,
     SHARED_CALENDAR_CATEGORIES,
@@ -107,6 +110,15 @@ def _settings_schema(defaults: dict[str, Any]) -> vol.Schema:
                 CONF_OWNER_NOTIFY_DEVICE, default=defaults.get(CONF_OWNER_NOTIFY_DEVICE)
             ): vol.Any(
                 None, selector.DeviceSelector(selector.DeviceSelectorConfig(integration="mobile_app"))
+            ),
+            vol.Required(
+                CONF_NOTIFICATION_INTENSITY, default=defaults[CONF_NOTIFICATION_INTENSITY]
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=NOTIFICATION_INTENSITIES,
+                    translation_key="notification_intensity",
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
             ),
             vol.Optional(
                 CONF_ESCALATION_GRACE_MINUTES, default=defaults[CONF_ESCALATION_GRACE_MINUTES]
@@ -190,6 +202,7 @@ class PerioderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_PAUSE_DAYS: pause_days,
             CONF_REMINDER_TIME: DEFAULT_REMINDER_TIME,
             CONF_OWNER_NOTIFY_DEVICE: None,
+            CONF_NOTIFICATION_INTENSITY: DEFAULT_NOTIFICATION_INTENSITY,
             CONF_ESCALATION_GRACE_MINUTES: DEFAULT_ESCALATION_GRACE_MINUTES,
             CONF_ESCALATION_REPEAT_MINUTES: DEFAULT_ESCALATION_REPEAT_MINUTES,
             CONF_ESCALATION_MAX_COUNT: DEFAULT_ESCALATION_MAX_COUNT,
@@ -234,10 +247,17 @@ class PerioderOptionsFlow(OptionsFlowWithReload):
             self._options.setdefault(CONF_RESTOCK_DAYS_BEFORE, DEFAULT_RESTOCK_DAYS_BEFORE)
             self._options.setdefault(CONF_SHARED_CALENDAR_CATEGORIES, DEFAULT_SHARED_CALENDAR_CATEGORIES)
             self._options.setdefault(CONF_LOW_STOCK_THRESHOLD, DEFAULT_LOW_STOCK_THRESHOLD)
+            self._options.setdefault(CONF_NOTIFICATION_INTENSITY, DEFAULT_NOTIFICATION_INTENSITY)
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         self._ensure_working_copy()
-        return self.async_show_menu(step_id="init", menu_options=["settings", "supporters"])
+        # "finish" (Done) lives directly in the base menu (v0.9.19) - it's
+        # the only step that actually calls async_create_entry() and used to
+        # be reachable only from inside "Manage supporters", so editing just
+        # the settings meant diving into an unrelated submenu to find the
+        # save button. Every submenu (settings, supporters) instead has its
+        # own way back here after it's done, same as settings already did.
+        return self.async_show_menu(step_id="init", menu_options=["settings", "supporters", "finish"])
 
     async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         self._ensure_working_copy()
@@ -262,8 +282,16 @@ class PerioderOptionsFlow(OptionsFlowWithReload):
         menu_options = ["add_supporter"]
         if supporters:
             menu_options.append("remove_supporter")
-        menu_options.append("finish")
+        # v0.9.19: was "finish" here - Done now lives in the base menu
+        # (async_step_init), reachable without touching supporters at all.
+        # "back" just returns to that menu, same shape as add/remove_supporter
+        # already returning to *this* menu after they're done.
+        menu_options.append("back")
         return self.async_show_menu(step_id="supporters", menu_options=menu_options)
+
+    async def async_step_back(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Return to the base menu - see async_step_supporters()."""
+        return await self.async_step_init()
 
     async def async_step_add_supporter(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         self._ensure_working_copy()

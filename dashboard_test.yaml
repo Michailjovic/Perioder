@@ -90,10 +90,23 @@ cards:
             icon: mdi:calendar-heart
             color: purple
 
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: number.test_pills_in_stock
+            name: Zásoba prášků doma
+            icon: mdi:pill-multiple
+            color: amber
+          - type: tile
+            entity: time.test_reminder_time
+            name: Kdy chci připomenout
+            icon: mdi:alarm
+            color: amber
+
       - type: tile
-        entity: number.test_pills_in_stock
-        name: Zásoba prášků doma
-        icon: mdi:pill-multiple
+        entity: select.test_notification_intensity
+        name: Jak moc naléhavě upozornit
+        icon: mdi:volume-vibrate
         color: amber
 
       - type: markdown

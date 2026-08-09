@@ -5,6 +5,61 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.20] - 2026-08-09
+
+### Added
+
+- `select.*_notification_intensity` (four levels: quiet / normal / urgent /
+  critical) - how pushy the daily reminder + its escalation should be on
+  the owner's phone. Only those two notifications; not supporters, not the
+  one-shot restock/low-stock notices. Settable both from admin Configure
+  (`notification_intensity` in the settings form) and from the cycle
+  owner's own dashboard (same `entry.options`-direct-write pattern as
+  `time.py`'s reminder-time entity, added to `dashboard_alina.yaml` /
+  `dashboard_test.yaml`). Levels map to real mobile_app `data` payloads in
+  `notifications.INTENSITY_DATA` - Android notification channel + importance
+  (`quiet`→low, `normal`→default, `urgent`→high with `priority: high`/
+  `ttl: 0`), iOS `push.interruption-level` (passive/active/time-sensitive),
+  and for `critical` specifically: iOS `push.sound.critical: 1` (true
+  critical alert, bypasses silent/Do Not Disturb) and Android's reserved
+  `alarm_stream` channel (bypasses silent/vibrate mode) - see the Home
+  Assistant Companion docs linked in `notifications.py`.
+
+## [0.9.19] - 2026-08-09
+
+### Fixed
+
+- 0.9.18's 1-minute polling interval was a stopgap, not the real fix - still
+  not "exactly at the configured time" as expected, just close to it. The
+  notification engine no longer polls on any fixed interval: `__init__.py`
+  now schedules exactly one `async_track_point_in_time` call for the next
+  instant that actually matters (`reminder_time`, the grace deadline, the
+  next escalation, a live snooze, or local midnight for the plain cycle
+  sensors), and reschedules itself from scratch every time it runs, from
+  the fresh state that run just produced. See `_compute_next_check_at()`
+  and `_async_run_and_reschedule()`. A settings change (which reloads the
+  entry) now also takes effect on its very next wake instead of up to a
+  polling-interval's worth of delay later.
+- Options Flow navigation was backwards: the base menu (Edit settings /
+  Manage supporters) had no "Done" of its own - the only step that actually
+  saved (`async_create_entry`) lived inside "Manage supporters", so editing
+  just the settings meant detouring through an unrelated submenu to find
+  the save button. "Done" now lives directly in the base menu; "Manage
+  supporters" instead gets a "Back to menu" option, matching how "Edit
+  settings" already returned to the base menu after its own submit.
+
+### Added
+
+- `time.*_reminder_time` (`time.py`): the daily contraception reminder time
+  is now also settable as a plain entity, not just via the admin-only
+  Options Flow - so the cycle owner can pick her own reminder time from her
+  own dashboard. Writes straight to `entry.options` (the same place Options
+  Flow writes to, so whichever UI was used last simply wins - no separate
+  "two sources of truth"), without triggering Options Flow's usual full
+  entry reload, since the notification scheduler already reads settings
+  fresh on every run. Added to `dashboard_alina.yaml` / `dashboard_test.yaml`
+  next to the pills-in-stock tile.
+
 ## [0.9.18] - 2026-08-09
 
 ### Fixed

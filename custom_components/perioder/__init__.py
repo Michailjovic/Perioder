@@ -58,7 +58,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv, selector
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.util import slugify
 
 from . import cycle_math as cm
@@ -75,6 +75,7 @@ from .const import (
     CONF_ESCALATION_REPEAT_MINUTES,
     CONF_GOAL,
     CONF_LOW_STOCK_THRESHOLD,
+    CONF_NOTIFICATION_INTENSITY,
     CONF_OWNER_NOTIFY_DEVICE,
     CONF_PACK_SIZE,
     CONF_PAUSE_DAYS,
@@ -107,6 +108,7 @@ PLATFORMS: list[Platform] = [
     Platform.CALENDAR,
     Platform.SWITCH,
     Platform.NUMBER,
+    Platform.TIME,
 ]
 
 SERVICE_LOG_PERIOD_START = "log_period_start"
@@ -142,18 +144,21 @@ _ENTRY_TARGET_SCHEMA = {
     ),
 }
 
-REFRESH_INTERVAL = timedelta(minutes=1)
-# v0.9.18: was 15 minutes. `async_track_time_interval` fires relative to
-# whenever the config entry last (re)loaded (HA restart, or any Options Flow
-# save via OptionsFlowWithReload) - it is NOT aligned to wall-clock
-# boundaries like :00/:15/:30/:45. With a 15-minute period, the first check
-# after `reminder_time` could land anywhere up to ~15 minutes late depending
-# on that reload phase - confirmed live 2026-08-09, reminder set to 21:25
-# hadn't fired by 21:26 simply because the entry's own tick phase (from an
-# earlier reload) put the next check at ~21:35. A 1-minute period caps that
-# worst case at under a minute, which reads as "on time" - and is cheap
-# enough to run every minute (just in-memory state checks + maybe one
-# notify call), no different in cost from any other HA polling entity.
+_HEARTBEAT = timedelta(minutes=5)
+# v0.9.19: the notification engine no longer polls on a fixed interval at
+# all (0.9.18's 1-minute `async_track_time_interval` was a stopgap, not the
+# real fix). It now schedules exactly one `async_track_point_in_time` call
+# for the next instant that actually matters - `reminder_time`, the grace
+# deadline, the next escalation, or local midnight (for the plain cycle
+# sensors, which need a nudge to roll over even with contraception
+# untouched) - and reschedules itself from scratch every time it runs, from
+# the fresh state left by that run. This is the difference between "roughly
+# every N minutes" (which is what a human reads as "randomly a few minutes
+# late") and firing at the literal configured second. `_HEARTBEAT` is only a
+# ceiling - nothing contraception-notification-specific ever needs a wake
+# sooner than that, but the plain "pack running low" / "stock low" checks
+# (not otherwise time-anchored to anything) still get re-evaluated at least
+# this often. See `_async_schedule_next_check()`.
 
 
 # Key under which the shared (not per-entry) mobile_app_notification_action
@@ -187,11 +192,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await data.async_load()
     hass.data[DOMAIN][entry.entry_id] = data
 
-    async def _async_tick(now, hass=hass, entry=entry, data=data) -> None:
+    _schedule = {"cancel": None}  # holds the one live async_track_point_in_time unsub
+
+    async def _async_run_and_reschedule(now=None, hass=hass, entry=entry, data=data) -> None:
+        """Run one check, then arrange the next one for the next instant that
+        actually matters (see `_HEARTBEAT` above) - not a fixed interval.
+        """
         data.request_refresh()
         await _async_check_contraception_notifications(hass, entry, data)
+        next_at = _compute_next_check_at(entry, data)
+        _schedule["cancel"] = async_track_point_in_time(hass, _async_run_and_reschedule, next_at)
 
-    entry.async_on_unload(async_track_time_interval(hass, _async_tick, REFRESH_INTERVAL))
+    def _cancel_schedule() -> None:
+        if _schedule["cancel"] is not None:
+            _schedule["cancel"]()
+
+    entry.async_on_unload(_cancel_schedule)
+    await _async_run_and_reschedule()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -247,15 +264,79 @@ async def _async_handle_notification_action(hass: HomeAssistant, event: Event) -
         await data.async_snooze(until)
 
 
+def _next_local_midnight(now: datetime) -> datetime:
+    """The start of the next local day - the plain cycle sensors (cycle_day,
+    phase, next_period, ...) have nothing else to wake them up when
+    contraception tracking is off/uninvolved, so this is always at least one
+    of the candidates in `_compute_next_check_at()`.
+    """
+    return datetime.combine(now.date() + timedelta(days=1), time.min)
+
+
+def _compute_next_check_at(entry: ConfigEntry, data: PerioderData) -> datetime:
+    """The next instant `_async_check_contraception_notifications()` actually
+    needs to run again - mirroring that function's own branching (reminder_time,
+    a live snooze, the grace deadline, the next escalation) so the scheduled
+    wake lines up with the literal configured moment instead of a fixed
+    polling interval that may or may not happen to land nearby (see v0.9.19
+    in CHANGELOG.md). Doesn't need to be byte-perfect: if it's ever off by a
+    branch, the mismatched wake just re-runs the check a little early/late,
+    finds nothing to do yet, and reschedules itself correctly from the fresh
+    state it reads at that point - self-healing, never a missed or duplicate
+    notification, see `_async_run_and_reschedule()` in `async_setup_entry()`.
+    """
+    now = local_now()
+    today = local_today()
+    settings = get_settings(entry)
+    candidates = [now + _HEARTBEAT, _next_local_midnight(now)]
+
+    contraception = data.contraception
+    if contraception["active"] and contraception["pack_start_date"]:
+        notif_state = data.notifications
+        pack_start = dt_date.fromisoformat(contraception["pack_start_date"])
+        day = pm.day_in_pack(pack_start, today, settings[CONF_PACK_SIZE], settings[CONF_PAUSE_DAYS])
+        reminder_dt = datetime.combine(today, time.fromisoformat(settings[CONF_REMINDER_TIME]))
+
+        if not notif_state["paused"] and pm.is_pill_day(day, settings[CONF_PACK_SIZE]):
+            logged_today = contraception["pill_log"].get(today.isoformat())
+            already_taken = logged_today is not None and logged_today["status"] == "taken"
+
+            if not already_taken:
+                if notif_state["last_reminder_date"] != today.isoformat():
+                    candidates.append(reminder_dt)
+                else:
+                    snoozed_until = notif_state.get("snoozed_until")
+                    if snoozed_until and now < datetime.fromisoformat(snoozed_until):
+                        candidates.append(datetime.fromisoformat(snoozed_until))
+                    else:
+                        grace_end = reminder_dt + timedelta(
+                            minutes=settings[CONF_ESCALATION_GRACE_MINUTES]
+                        )
+                        if notif_state["escalation_count"] == 0:
+                            candidates.append(grace_end)
+                        elif notif_state["escalation_count"] < settings[CONF_ESCALATION_MAX_COUNT]:
+                            last_escalation_at = notif_state["last_escalation_at"]
+                            base = (
+                                datetime.fromisoformat(last_escalation_at)
+                                if last_escalation_at
+                                else grace_end
+                            )
+                            candidates.append(
+                                base + timedelta(minutes=settings[CONF_ESCALATION_REPEAT_MINUTES])
+                            )
+
+    return max(min(candidates), now + timedelta(seconds=1))
+
+
 async def _async_check_contraception_notifications(
     hass: HomeAssistant, entry: ConfigEntry, data: PerioderData
 ) -> None:
     """Daily reminder + escalation to the owner, missed-dose alert to supporters, pack restock notice.
 
-    Runs on every REFRESH_INTERVAL tick (1 min, v0.9.18) rather than at exact
-    times - close enough to exact for a daily reminder, and it means
-    `escalation_repeat_minutes` shorter than ~1 min has no extra effect
-    (capped at tick granularity), which is not a realistic setting anyway.
+    Called at the exact instants `_compute_next_check_at()` computes (v0.9.19)
+    - `reminder_time`, the grace deadline, each escalation, or a live snooze -
+    not on a fixed polling interval, so this fires right at the configured
+    moment rather than merely "soon after" it.
     """
     contraception = data.contraception
     if not contraception["active"] or not contraception["pack_start_date"]:
@@ -337,7 +418,14 @@ async def _async_check_contraception_notifications(
     if notif_state["paused"]:
         return
 
-    pill_action_data = {"actions": notifications.pill_actions(entry.entry_id)}
+    # v0.9.20: merges in the configured push intensity (quiet/normal/urgent/
+    # critical - see notifications.INTENSITY_DATA) alongside the actionable
+    # buttons. Only the owner's reminder + escalation use this - not the
+    # supporter or low-stock notifications, which stay at plain defaults.
+    pill_action_data = {
+        **notifications.intensity_data(settings[CONF_NOTIFICATION_INTENSITY]),
+        "actions": notifications.pill_actions(entry.entry_id),
+    }
 
     if notif_state["last_reminder_date"] != today.isoformat():
         # Always send *today's* initial reminder, even if snoozed_until is

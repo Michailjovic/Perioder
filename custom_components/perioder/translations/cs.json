@@ -15,6 +15,7 @@
           "pause_days": "Dny pauzy (jen u vlastního typu)",
           "reminder_time": "Čas denní připomínky antikoncepce",
           "owner_notify_device": "Tvoje vlastní notifikační zařízení (pro denní připomínku)",
+          "notification_intensity": "Intenzita denní připomínky a eskalace",
           "escalation_grace_minutes": "Doba, po které se dávka počítá jako vynechaná (minuty)",
           "escalation_repeat_minutes": "Interval mezi eskalačními připomínkami (minuty)",
           "escalation_max_count": "Maximální počet eskalačních připomínek",
@@ -33,7 +34,8 @@
       "init": {
         "menu_options": {
           "settings": "Upravit nastavení",
-          "supporters": "Spravovat podporovatele"
+          "supporters": "Spravovat podporovatele",
+          "finish": "Hotovo"
         }
       },
       "settings": {
@@ -48,6 +50,7 @@
           "pause_days": "Dny pauzy (jen u vlastního typu)",
           "reminder_time": "Čas denní připomínky antikoncepce",
           "owner_notify_device": "Tvoje vlastní notifikační zařízení (pro denní připomínku)",
+          "notification_intensity": "Intenzita denní připomínky a eskalace",
           "escalation_grace_minutes": "Doba, po které se dávka počítá jako vynechaná (minuty)",
           "escalation_repeat_minutes": "Interval mezi eskalačními připomínkami (minuty)",
           "escalation_max_count": "Maximální počet eskalačních připomínek",
@@ -61,7 +64,7 @@
         "menu_options": {
           "add_supporter": "Přidat podporovatele",
           "remove_supporter": "Odebrat podporovatele",
-          "finish": "Hotovo"
+          "back": "Zpět do menu"
         }
       },
       "add_supporter": {
@@ -113,6 +116,14 @@
       "options": {
         "general": "Obecná (bez detailů)",
         "detailed": "Detailní"
+      }
+    },
+    "notification_intensity": {
+      "options": {
+        "quiet": "Tichá",
+        "normal": "Normální",
+        "urgent": "Naléhavá",
+        "critical": "Kritická"
       }
     },
     "shared_calendar_category": {
@@ -208,6 +219,15 @@
           "active": "Vynutit aktivní",
           "inactive": "Vynutit neaktivní"
         }
+      },
+      "notification_intensity": {
+        "name": "Intenzita upozornění",
+        "state": {
+          "quiet": "Tichá",
+          "normal": "Normální",
+          "urgent": "Naléhavá",
+          "critical": "Kritická"
+        }
       }
     },
     "button": {
@@ -258,6 +278,11 @@
     "number": {
       "pills_in_stock": {
         "name": "Zásoba prášků"
+      }
+    },
+    "time": {
+      "reminder_time": {
+        "name": "Denní připomínka antikoncepce"
       }
     }
   }

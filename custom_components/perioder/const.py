@@ -30,6 +30,9 @@ CONF_SHARED_CALENDAR_CATEGORIES = "shared_calendar_categories"
 # Config / options keys - pill stock (v0.8.0)
 CONF_LOW_STOCK_THRESHOLD = "low_stock_threshold"
 
+# Config / options keys - notification intensity (v0.9.20)
+CONF_NOTIFICATION_INTENSITY = "notification_intensity"
+
 DEFAULT_CYCLE_LENGTH = 28
 DEFAULT_PERIOD_DURATION = 5
 DEFAULT_GOAL = "track"
@@ -46,6 +49,20 @@ DEFAULT_ESCALATION_GRACE_MINUTES = 60
 DEFAULT_ESCALATION_REPEAT_MINUTES = 30
 DEFAULT_ESCALATION_MAX_COUNT = 3
 DEFAULT_RESTOCK_DAYS_BEFORE = 3
+
+# How pushy the daily reminder + its escalation should be on the owner's
+# phone (v0.9.20) - only these two notifications; not supporters, not the
+# one-shot restock/low-stock notices. Maps to concrete mobile_app `data`
+# fields in notifications.py's INTENSITY_DATA (Android notification channel/
+# importance, iOS interruption-level/critical sound) - see that module for
+# the actual payloads and links to the Home Assistant Companion docs they're
+# based on.
+INTENSITY_QUIET = "quiet"
+INTENSITY_NORMAL = "normal"
+INTENSITY_URGENT = "urgent"
+INTENSITY_CRITICAL = "critical"
+NOTIFICATION_INTENSITIES = [INTENSITY_QUIET, INTENSITY_NORMAL, INTENSITY_URGENT, INTENSITY_CRITICAL]
+DEFAULT_NOTIFICATION_INTENSITY = INTENSITY_NORMAL
 
 # Below this many physical pills left at home, warn once (until restocked).
 # Separate from restock_days_before: that one is about the *current pack*

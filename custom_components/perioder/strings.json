@@ -15,6 +15,7 @@
           "pause_days": "Pause days (custom regimen only)",
           "reminder_time": "Daily contraception reminder time",
           "owner_notify_device": "Your own notify device (for the daily reminder)",
+          "notification_intensity": "Intensity of the daily reminder/escalation push notification",
           "escalation_grace_minutes": "Grace period before a dose counts as missed (minutes)",
           "escalation_repeat_minutes": "Time between escalation reminders (minutes)",
           "escalation_max_count": "Maximum number of escalation reminders",
@@ -33,7 +34,8 @@
       "init": {
         "menu_options": {
           "settings": "Edit settings",
-          "supporters": "Manage supporters"
+          "supporters": "Manage supporters",
+          "finish": "Done"
         }
       },
       "settings": {
@@ -48,6 +50,7 @@
           "pause_days": "Pause days (custom regimen only)",
           "reminder_time": "Daily contraception reminder time",
           "owner_notify_device": "Your own notify device (for the daily reminder)",
+          "notification_intensity": "Intensity of the daily reminder/escalation push notification",
           "escalation_grace_minutes": "Grace period before a dose counts as missed (minutes)",
           "escalation_repeat_minutes": "Time between escalation reminders (minutes)",
           "escalation_max_count": "Maximum number of escalation reminders",
@@ -61,7 +64,7 @@
         "menu_options": {
           "add_supporter": "Add a supporter",
           "remove_supporter": "Remove a supporter",
-          "finish": "Done"
+          "back": "Back to menu"
         }
       },
       "add_supporter": {
@@ -113,6 +116,14 @@
       "options": {
         "general": "General (no specifics)",
         "detailed": "Detailed"
+      }
+    },
+    "notification_intensity": {
+      "options": {
+        "quiet": "Quiet",
+        "normal": "Normal",
+        "urgent": "Urgent",
+        "critical": "Critical"
       }
     },
     "shared_calendar_category": {
@@ -208,6 +219,15 @@
           "active": "Force active",
           "inactive": "Force inactive"
         }
+      },
+      "notification_intensity": {
+        "name": "Notification intensity",
+        "state": {
+          "quiet": "Quiet",
+          "normal": "Normal",
+          "urgent": "Urgent",
+          "critical": "Critical"
+        }
       }
     },
     "button": {
@@ -258,6 +278,11 @@
     "number": {
       "pills_in_stock": {
         "name": "Pills in stock"
+      }
+    },
+    "time": {
+      "reminder_time": {
+        "name": "Daily contraception reminder"
       }
     }
   }

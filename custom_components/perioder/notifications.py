@@ -30,10 +30,78 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from .const import ACTION_CONFIRM_PILL_PREFIX, ACTION_POSTPONE_PILL_PREFIX, CONF_OWNER_NOTIFY_DEVICE, DETAIL_DETAILED
+from .const import (
+    ACTION_CONFIRM_PILL_PREFIX,
+    ACTION_POSTPONE_PILL_PREFIX,
+    CONF_OWNER_NOTIFY_DEVICE,
+    DETAIL_DETAILED,
+    INTENSITY_CRITICAL,
+    INTENSITY_NORMAL,
+    INTENSITY_QUIET,
+    INTENSITY_URGENT,
+)
 from .settings import get_settings, get_supporters
 
 _LOGGER = logging.getLogger(__name__)
+
+# v0.9.20 - how pushy the daily reminder/escalation should be, see
+# const.py's NOTIFICATION_INTENSITIES. Field names/values are the mobile_app
+# notify platform's own `data` payload, documented at
+# https://companion.home-assistant.io/docs/notifications/notifications-basic
+# (channel/importance/priority/ttl - Android) and
+# https://companion.home-assistant.io/docs/notifications/critical-notifications
+# (push.interruption-level/push.sound - iOS). Android channels are
+# per-*name* - the first notification sent to a given channel name creates
+# it with that importance and that sticks even if a later notification asks
+# for a different importance on the same name (Android's own rule, not
+# something this integration controls) - that's why each intensity gets its
+# own distinct channel name rather than trying to vary importance within one
+# shared "Perioder" channel. "critical" deliberately reuses Android's
+# reserved `alarm_stream` channel name (see the Companion docs' "Android
+# Alarm Stream" section) instead of a custom name - that's the one that
+# actually bypasses silent/vibrate mode, which is the whole point of the
+# "kritická" tier; a custom channel at "high" importance (what "urgent"
+# uses) still respects the phone's ringer mode.
+INTENSITY_DATA: dict[str, dict[str, Any]] = {
+    INTENSITY_QUIET: {
+        "channel": "Perioder – tichá",
+        "importance": "low",
+        "push": {"interruption-level": "passive"},
+    },
+    INTENSITY_NORMAL: {
+        "channel": "Perioder",
+        "importance": "default",
+        "push": {"interruption-level": "active"},
+    },
+    INTENSITY_URGENT: {
+        "channel": "Perioder – naléhavá",
+        "importance": "high",
+        "priority": "high",
+        "ttl": 0,
+        "push": {"interruption-level": "time-sensitive"},
+    },
+    INTENSITY_CRITICAL: {
+        "channel": "alarm_stream",
+        "importance": "high",
+        "priority": "high",
+        "ttl": 0,
+        "push": {
+            "interruption-level": "critical",
+            "sound": {"name": "default", "critical": 1, "volume": 1.0},
+        },
+    },
+}
+
+
+def intensity_data(level: str) -> dict[str, Any]:
+    """The `data` payload fragment for one notification intensity level.
+
+    Falls back to `INTENSITY_NORMAL`'s payload for an unrecognized level
+    (e.g. a config entry from before this setting existed) rather than
+    raising - a bad/missing intensity should never be the reason a
+    reminder fails to send.
+    """
+    return dict(INTENSITY_DATA.get(level, INTENSITY_DATA[INTENSITY_NORMAL]))
 
 
 def pill_actions(entry_id: str) -> list[dict[str, str]]:
