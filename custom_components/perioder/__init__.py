@@ -142,7 +142,19 @@ _ENTRY_TARGET_SCHEMA = {
     ),
 }
 
-REFRESH_INTERVAL = timedelta(minutes=15)
+REFRESH_INTERVAL = timedelta(minutes=1)
+# v0.9.18: was 15 minutes. `async_track_time_interval` fires relative to
+# whenever the config entry last (re)loaded (HA restart, or any Options Flow
+# save via OptionsFlowWithReload) - it is NOT aligned to wall-clock
+# boundaries like :00/:15/:30/:45. With a 15-minute period, the first check
+# after `reminder_time` could land anywhere up to ~15 minutes late depending
+# on that reload phase - confirmed live 2026-08-09, reminder set to 21:25
+# hadn't fired by 21:26 simply because the entry's own tick phase (from an
+# earlier reload) put the next check at ~21:35. A 1-minute period caps that
+# worst case at under a minute, which reads as "on time" - and is cheap
+# enough to run every minute (just in-memory state checks + maybe one
+# notify call), no different in cost from any other HA polling entity.
+
 
 # Key under which the shared (not per-entry) mobile_app_notification_action
 # listener's unsubscribe callable is stashed in hass.data - registered once
@@ -240,9 +252,10 @@ async def _async_check_contraception_notifications(
 ) -> None:
     """Daily reminder + escalation to the owner, missed-dose alert to supporters, pack restock notice.
 
-    Runs on every REFRESH_INTERVAL tick (15 min) rather than at exact times -
-    fine for a daily reminder, but it does mean `escalation_repeat_minutes`
-    shorter than ~15 min has no extra effect (capped at tick granularity).
+    Runs on every REFRESH_INTERVAL tick (1 min, v0.9.18) rather than at exact
+    times - close enough to exact for a daily reminder, and it means
+    `escalation_repeat_minutes` shorter than ~1 min has no extra effect
+    (capped at tick granularity), which is not a realistic setting anyway.
     """
     contraception = data.contraception
     if not contraception["active"] or not contraception["pack_start_date"]:

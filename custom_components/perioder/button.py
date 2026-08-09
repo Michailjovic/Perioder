@@ -14,7 +14,7 @@
 - "Test notification" (v0.9.10): fires `notifications.async_notify_owner()`
   directly, bypassing every bit of `__init__.py`'s reminder/escalation
   timing logic (reminder_time, grace period, pause/missed state, the
-  15-minute tick). Exists to isolate "the notify pipeline itself is broken
+  periodic tick). Exists to isolate "the notify pipeline itself is broken
   (bad/missing `owner_notify_device`, no `notify.*` entity for it, HA can't
   reach the phone)" from "the pipeline is fine, it's just not the right
   moment yet" - the two look identical from "nothing arrived on my phone".

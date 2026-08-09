@@ -5,6 +5,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.18] - 2026-08-09
+
+### Fixed
+
+- Even after 0.9.17's deadlock fix, a freshly-set `reminder_time` (e.g.
+  21:25, tested live 2026-08-09) still didn't arrive by a minute past -
+  because `async_track_time_interval(REFRESH_INTERVAL)` fires relative to
+  whenever the config entry last (re)loaded (HA restart, or any Options Flow
+  save via `OptionsFlowWithReload` - including the very save that changed
+  `reminder_time`), not aligned to wall-clock boundaries. With
+  `REFRESH_INTERVAL` at 15 minutes, the next check after a given
+  `reminder_time` could legitimately land anywhere up to ~15 minutes later
+  depending on that reload phase - not a bug in the notification logic
+  itself, just very poor perceived timing precision for something users set
+  to an exact minute.
+  - `REFRESH_INTERVAL`: 15 minutes -> 1 minute. Caps the worst case at under
+    a minute, cheap enough to run every minute (in-memory checks + at most
+    one notify call).
+
 ## [0.9.17] - 2026-08-09
 
 ### Fixed
