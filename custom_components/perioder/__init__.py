@@ -38,18 +38,22 @@ from __future__ import annotations
 
 import csv
 import logging
-# `date` is aliased to `dt_date` here - NOT cosmetic, do not "clean up" back
-# to a bare `date`. This package also has a `date.py` submodule (the
-# Platform.DATE entity file). The moment `hass.config_entries.
-# async_forward_entry_setups()` imports it, Python's import machinery binds
-# that submodule as the `date` attribute on *this* package/module - silently
-# overwriting whatever `from datetime import date` bound here at import
-# time. Every bare `date.today()`/`date.fromisoformat()` call after that
-# point then breaks with `AttributeError: module '...perioder.date' has no
-# attribute 'today'` (hit live 2026-08-07, e.g. via the start_new_pack
-# service/button). Aliasing sidesteps it entirely since nothing here ever
-# reads the clobbered `date` name.
-from datetime import date as dt_date, datetime, time, timedelta
+# `date` and `time` are aliased to `dt_date`/`dt_time` here - NOT cosmetic,
+# do not "clean up" back to bare `date`/`time`. This package also has
+# `date.py` and `time.py` submodules (the Platform.DATE / Platform.TIME
+# entity files). The moment `hass.config_entries.async_forward_entry_setups()`
+# imports either, Python's import machinery binds that submodule as the
+# matching attribute on *this* package/module - silently overwriting
+# whatever `from datetime import date`/`from datetime import time` bound
+# here at import time. Every bare `date.today()`/`date.fromisoformat()` (or
+# `time.fromisoformat()`/`time.min`) call after that point then breaks with
+# `AttributeError: module '...perioder.date' has no attribute 'today'` (hit
+# live 2026-08-07 for `date`, via start_new_pack; hit again live 2026-08-09
+# for `time`, once Platform.TIME/`time.py` were added in v0.9.19 - same bug,
+# same fix, just never applied to `time` until now since it didn't exist
+# yet). Aliasing sidesteps it entirely since nothing here ever reads either
+# clobbered name.
+from datetime import date as dt_date, datetime, time as dt_time, timedelta
 from pathlib import Path
 
 import voluptuous as vol
@@ -295,7 +299,7 @@ def _next_local_midnight(now: datetime) -> datetime:
     contraception tracking is off/uninvolved, so this is always at least one
     of the candidates in `_compute_next_check_at()`.
     """
-    return datetime.combine(now.date() + timedelta(days=1), time.min)
+    return datetime.combine(now.date() + timedelta(days=1), dt_time.min)
 
 
 def _compute_next_check_at(entry: ConfigEntry, data: PerioderData) -> tuple[datetime, str]:
@@ -328,7 +332,7 @@ def _compute_next_check_at(entry: ConfigEntry, data: PerioderData) -> tuple[date
         notif_state = data.notifications
         pack_start = dt_date.fromisoformat(contraception["pack_start_date"])
         day = pm.day_in_pack(pack_start, today, settings[CONF_PACK_SIZE], settings[CONF_PAUSE_DAYS])
-        reminder_dt = datetime.combine(today, time.fromisoformat(settings[CONF_REMINDER_TIME]))
+        reminder_dt = datetime.combine(today, dt_time.fromisoformat(settings[CONF_REMINDER_TIME]))
 
         if not notif_state["paused"] and pm.is_pill_day(day, settings[CONF_PACK_SIZE]):
             logged_today = contraception["pill_log"].get(today.isoformat())
@@ -439,7 +443,7 @@ async def _async_check_contraception_notifications(
     settings = get_settings(entry)
     today = local_today()
     now = local_now()
-    reminder_time = time.fromisoformat(settings[CONF_REMINDER_TIME])
+    reminder_time = dt_time.fromisoformat(settings[CONF_REMINDER_TIME])
     pack_start = dt_date.fromisoformat(contraception["pack_start_date"])
 
     side_notes: list[str] = []

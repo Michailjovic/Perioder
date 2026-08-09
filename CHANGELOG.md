@@ -5,6 +5,27 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.23] - 2026-08-09
+
+### Fixed
+
+- The actual root cause of every failed reminder tonight, caught within
+  seconds of turning on 0.9.22's debug trace: `custom_components/perioder/__init__.py`
+  imported the stdlib `datetime.time` as a bare `time` - exactly the same
+  submodule-name-clobbering trap already documented (and fixed) for `date`
+  back in v0.9.9, just never applied to `time` because `time.py` (the new
+  Platform.TIME entity file) didn't exist until v0.9.19. The moment
+  `async_forward_entry_setups()` imports `time.py`, Python's import
+  machinery binds that submodule as the `time` attribute on the `perioder`
+  package itself, silently overwriting the `datetime.time` import - so
+  every scheduled check *after* the first (i.e. every one following
+  platform setup) crashed with `AttributeError: module
+  '...perioder.time' has no attribute 'fromisoformat'/'min'`, killing that
+  run (though no longer the whole chain, thanks to 0.9.21's try/except -
+  this is exactly the failure it was built to catch and report).
+  - `from datetime import time` -> `from datetime import time as dt_time`,
+    every call site updated, same treatment `date`/`dt_date` already got.
+
 ## [0.9.22] - 2026-08-09
 
 ### Added
