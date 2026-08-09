@@ -15,9 +15,14 @@
   directly, bypassing every bit of `__init__.py`'s reminder/escalation
   timing logic (reminder_time, grace period, pause/missed state, the
   periodic tick). Exists to isolate "the notify pipeline itself is broken
-  (bad/missing `owner_notify_device`, no `notify.*` entity for it, HA can't
-  reach the phone)" from "the pipeline is fine, it's just not the right
-  moment yet" - the two look identical from "nothing arrived on my phone".
+  (bad/missing `owner_notify_device`, no legacy `notify.mobile_app_*`
+  service for it, HA can't reach the phone)" from "the pipeline is fine,
+  it's just not the right moment yet" - the two look identical from
+  "nothing arrived on my phone". Sends without a `data=` argument, so - as
+  found live 2026-08-09 - it never exercised the bug in
+  notifications.async_send_to_device() that broke the *real* reminder/
+  escalation (which always sends actionable buttons via `data=`); a green
+  test notification here didn't necessarily mean the actual reminder worked.
   Also drops a `persistent_notification` (Settings bell icon) reporting
   whether `owner_notify_device` was even configured, since a misconfigured
   device fails *silently* on the push side (see notifications.py's
@@ -87,15 +92,16 @@ class TestNotificationButton(ButtonEntity):
             self.hass,
             self._entry,
             "🔔 Perioder - testovací notifikace",
-            "Pokud tohle vidíš na telefonu, notifikační kanál (owner_notify_device -> notify.* entita) funguje.",
+            "Pokud tohle vidíš na telefonu, notifikační kanál (owner_notify_device -> notify.mobile_app_* služba) funguje.",
         )
 
         if device_id:
             outcome = (
                 f"owner_notify_device je nastavené ({device_id}) - notifikace byla odeslána. "
                 "Pokud na telefonu nic nepřišlo, zkontroluj v logu (Nastavení > Systém > Logy) "
-                "hlášku 'Perioder: no notify entity found for device' - znamená to, že to "
-                "zařízení nemá odpovídající notify.* entitu (stará/odpojená Companion app)."
+                "hlášku 'Perioder: no legacy notify.mobile_app_* service found for device' - "
+                "znamená to, že to zařízení nemá odpovídající notify.mobile_app_* službu "
+                "(stará/odpojená Companion app)."
             )
         else:
             outcome = (

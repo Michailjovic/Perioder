@@ -5,6 +5,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.24] - 2026-08-09
+
+### Fixed
+
+- The real, final root cause behind essentially every "the reminder never
+  arrives" report tonight (and quite possibly ever, for this integration -
+  see below): `notifications.py` sent the owner's reminder/escalation via
+  `notify.send_message` (the HA 2024.10+ notify-entity action) with a
+  `data=` payload for actionable buttons (`pill_actions()`) and, since
+  v0.9.20, notification intensity (`INTENSITY_DATA`). `notify.send_message`
+  rejects that outright - `voluptuous.Invalid: extra keys not allowed @
+  data['data']` - caught immediately by 0.9.22's debug trace. This is a
+  confirmed, currently open Home Assistant limitation (as of 2026.8):
+  `notify.send_message` only supports plain `title`/`message`, not
+  actionable buttons, Android channel/importance, iOS interruption-level/
+  critical sound, or any other companion-app-specific field - see
+  https://github.com/orgs/home-assistant/discussions/3684. The
+  test-notification button never caught this because it sends without a
+  `data=` argument at all, so a "it works!" test never actually exercised
+  the code path the real reminder always used.
+  - `notifications.async_send_to_device()` now resolves and calls the
+    legacy per-device `notify.mobile_app_<slug>` service instead (via the
+    device registry, not the entity registry) - the one HA integration this
+    still works through today. If HA ever adds real `data` support to
+    `notify.send_message`, this is the only place that would need to
+    change back.
+
 ## [0.9.23] - 2026-08-09
 
 ### Fixed

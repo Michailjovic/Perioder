@@ -2,13 +2,32 @@
 
 Two audiences, both resolved from a Home Assistant `device_id` (picked via
 `DeviceSelector(integration="mobile_app")` in Config/Options Flow) to that
-device's `notify` domain entity, then sent via the generic `notify.send_message`
-action - the modern (HA 2024.10+) notify-entity-platform call, which is what
-a real mobile_app device on a current Home Assistant exposes. If no matching
-notify entity is found (e.g. mobile_app device removed, or a very old HA
-without the notify-entity rewrite), the call is skipped with a warning
-instead of raising - a bad/stale notify target for one supporter shouldn't
-block anything else in the integration.
+device's legacy per-device `notify.mobile_app_<slug>` service - deliberately
+NOT the newer (HA 2024.10+) `notify.send_message` entity action, even though
+that looks like the "modern"/correct choice.
+
+Confirmed live 2026-08-09: `notify.send_message` rejects any extra `data`
+payload at all - `voluptuous.Invalid: extra keys not allowed @ data['data']`
+- for a mobile_app notify entity. It only supports a plain `title`/`message`,
+not actionable buttons, Android channel/importance, iOS interruption-level/
+critical sound, or any other companion-app-specific field this integration
+needs (`pill_actions()`, `INTENSITY_DATA`, below). This is a confirmed,
+still-open Home Assistant limitation as of 2026.8 - see
+https://github.com/orgs/home-assistant/discussions/3684 ("Support advanced
+companion app notification options for notify entities and groups", opened
+2026-05-07, unresolved) - not a bug in this integration. The legacy
+per-device service is still the only way to send anything beyond a bare
+title/message; this is why v0.9.20's actionable buttons only ever "worked"
+for the plain-message test-notification button (no `data=` argument, so it
+never hit this) and never for the actual daily reminder until now. If HA
+ever adds real support for this to `notify.send_message`, this module is
+the only place that would need to change.
+
+If no matching legacy service is found (e.g. mobile_app device removed, its
+name changed since `owner_notify_device`/a supporter's `device_id` was
+picked, or a future HA version finally drops the legacy service), the call
+is skipped with a warning instead of raising - a bad/stale notify target for
+one supporter shouldn't block anything else in the integration.
 
 - `async_notify_owner()`: the cycle owner's own device (`owner_notify_device`
   setting) - used for the daily contraception reminder/escalation.
@@ -18,9 +37,8 @@ block anything else in the integration.
 
 v0.8.0 adds `pill_actions()`: the two mobile_app notification actions
 ("Vzal(a) jsem" / "Odložit") attached to the owner's reminder/escalation
-notifications, via `notify.send_message`'s `data.actions` passthrough - the
-same `data` field the legacy `notify.mobile_app_*` services accepted. Tapping
-one fires the `mobile_app_notification_action` event, handled in __init__.py.
+notifications, via the legacy service's `data.actions` field. Tapping one
+fires the `mobile_app_notification_action` event, handled in __init__.py.
 """
 from __future__ import annotations
 
@@ -28,7 +46,8 @@ import logging
 from typing import Any
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr
+from homeassistant.util import slugify
 
 from .const import (
     ACTION_CONFIRM_PILL_PREFIX,
@@ -117,13 +136,18 @@ def pill_actions(entry_id: str) -> list[dict[str, str]]:
     ]
 
 
-def _notify_entity_id(hass: HomeAssistant, device_id: str) -> str | None:
-    """Find the `notify.*` entity belonging to a device, if any."""
-    registry = er.async_get(hass)
-    for entry in er.async_entries_for_device(registry, device_id):
-        if entry.entity_id.startswith("notify."):
-            return entry.entity_id
-    return None
+def _legacy_notify_service(hass: HomeAssistant, device_id: str) -> str | None:
+    """The legacy per-device `notify.mobile_app_<slug>` service name for a
+    mobile_app device, if one is currently registered - see module
+    docstring for why this (not `notify.send_message`) is what actually
+    gets called. `<slug>` is the device's own name, slugified - the same
+    convention the `mobile_app` integration has always used to register it.
+    """
+    device = dr.async_get(hass).async_get(device_id)
+    if device is None or not device.name:
+        return None
+    service = f"mobile_app_{slugify(device.name)}"
+    return service if hass.services.has_service("notify", service) else None
 
 
 async def async_send_to_device(
@@ -131,22 +155,23 @@ async def async_send_to_device(
 ) -> None:
     """Send a notification to a device_id, or log a warning if it can't be resolved.
 
-    `data` is passed straight through as `notify.send_message`'s own `data`
-    field - e.g. `{"actions": pill_actions(entry_id)}` for actionable buttons.
+    `data` is passed straight through as the legacy service's own `data`
+    field - e.g. `{"actions": pill_actions(entry_id)}` for actionable
+    buttons, or an `INTENSITY_DATA` entry for channel/importance/push.
     """
-    entity_id = _notify_entity_id(hass, device_id)
-    if entity_id is None:
+    service = _legacy_notify_service(hass, device_id)
+    if service is None:
         _LOGGER.warning(
-            "Perioder: no notify entity found for device %s - notification not sent (%s)",
+            "Perioder: no legacy notify.mobile_app_* service found for device %s - notification not sent (%s)",
             device_id,
             title,
         )
         return
 
-    payload: dict[str, Any] = {"entity_id": entity_id, "title": title, "message": message}
+    payload: dict[str, Any] = {"title": title, "message": message}
     if data:
         payload["data"] = data
-    await hass.services.async_call("notify", "send_message", payload, blocking=False)
+    await hass.services.async_call("notify", service, payload, blocking=False)
 
 
 async def async_notify_owner(
