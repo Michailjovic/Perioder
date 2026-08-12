@@ -5,6 +5,39 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.29] - 2026-08-12
+
+### Added
+
+- Closes the M4 scope note (see `__init__.py`'s module docstring and
+  ANALYZA-A-ROADMAP.md section M4): `pms`/`period`/`fertility` now fire as
+  real transition-triggered supporter notifications, not just the
+  fertility-window mention folded into the missed-dose message.
+  - `period` ("blížící se perioda"): a heads-up `period_heads_up_days`
+    before the predicted period start (new setting, Options Flow > Edit
+    settings and `perioder.update_settings`; default 2, 0 disables it).
+  - `pms`: fires the moment `today` reaches the automatic PMS window's own
+    start date (`pms_window_days` before the predicted period - existing
+    setting, no new config). The manual PMS override
+    (`select.*_pms_override`) is a display-only concept for
+    `binary_sensor.*_pms_active` and isn't consulted here - it has no
+    "start date" of its own to trigger from.
+  - `fertility`: fires the moment `today` reaches the current cycle's
+    fertile window start (`cycle_math.fertile_window_dates()`, new pure
+    helper - converts the existing cycle-day-based `fertile_window()` into
+    real calendar dates for the logged `last_period_start`).
+  - All three are independent of `contraception.active` (the cycle is
+    tracked whether or not the owner is also on contraception) but still
+    respect `pause_notifications`, same as every other supporter
+    notification. Each is a dedup-by-cycle one-shot - same
+    `restock_notified_for` pattern the contraception-restock notice
+    already used - via three new `NotificationState` keys
+    (`period_notified_for`/`pms_notified_for`/`fertility_notified_for`,
+    storage.py) so nothing needs to be re-armed by hand each cycle.
+  - `_compute_next_check_at()` schedules the engine's next wake right at
+    each of these instants too, same as the contraception checks - not a
+    fixed polling interval.
+
 ## [0.9.28] - 2026-08-12
 
 ### Added

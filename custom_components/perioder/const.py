@@ -24,6 +24,15 @@ CONF_ESCALATION_REPEAT_MINUTES = "escalation_repeat_minutes"
 CONF_ESCALATION_MAX_COUNT = "escalation_max_count"
 CONF_RESTOCK_DAYS_BEFORE = "restock_days_before"
 
+# Config / options keys - cycle transition notifications (v0.9.29, closes
+# the M4 scope note - see __init__.py's module docstring). Only "period"
+# needs its own setting: it's a "days before" heads-up
+# (CATEGORY_PERIOD = "blížící se perioda", see SUPPORTER_CATEGORIES below),
+# unlike the "pms"/"fertility" categories, whose notification simply fires
+# the moment their already-configurable window starts (pms_window_days /
+# the fixed fertile_window() calendar-day math) - nothing new to set there.
+CONF_PERIOD_HEADS_UP_DAYS = "period_heads_up_days"
+
 # Config / options keys - shared calendar (M5)
 CONF_SHARED_CALENDAR_CATEGORIES = "shared_calendar_categories"
 
@@ -58,6 +67,7 @@ DEFAULT_ESCALATION_GRACE_MINUTES = 60
 DEFAULT_ESCALATION_REPEAT_MINUTES = 30
 DEFAULT_ESCALATION_MAX_COUNT = 3
 DEFAULT_RESTOCK_DAYS_BEFORE = 3
+DEFAULT_PERIOD_HEADS_UP_DAYS = 2  # 0 disables the "blížící se perioda" heads-up entirely
 
 # How pushy the daily reminder + its escalation should be on the owner's
 # phone (v0.9.20) - only these two notifications; not supporters, not the

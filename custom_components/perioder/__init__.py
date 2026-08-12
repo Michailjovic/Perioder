@@ -14,12 +14,21 @@ reminder + escalation to the cycle owner's own device (`owner_notify_device`),
 a missed-dose notification to supporters subscribed to that category (with a
 fertility-window heads-up folded in), a one-shot "pack running low" notice,
 and `pause_notifications` (service + `switch.pause_notifications`) to mute
-all of it without losing data. Scope note: only `missed_dose` and
-`contraception_restock` are wired up to actually fire in this release -
-`pms`/`period`/`fertility` as *transition-triggered* supporter notifications
-(vs. today's fertility-window mention folded into the missed-dose message)
-are intentionally left for a follow-up, see CHANGELOG.md and
-ANALYZA-A-ROADMAP.md.
+all of it without losing data. Scope note (closed in v0.9.29, see below):
+only `missed_dose` and `contraception_restock` were wired up to actually
+fire in the original M4 release - `pms`/`period`/`fertility` as
+*transition-triggered* supporter notifications (vs. the fertility-window
+mention folded into the missed-dose message) were intentionally left for a
+follow-up.
+
+v0.9.29 closes that scope note: `_async_check_cycle_notifications()` fires
+three more one-shot-per-cycle supporter notifications - a "blížící se
+perioda" heads-up (`period_heads_up_days` before the predicted start,
+CATEGORY_PERIOD), and "just started" notices for the PMS window
+(CATEGORY_PMS) and the fertile window (CATEGORY_FERTILITY). Deliberately
+independent of `contraception.active` (unlike the contraception check
+below) - the cycle itself is tracked regardless of contraception -  but
+still respects `pause_notifications`, same as everything else here.
 
 v0.8.0 adds a real pill-stock count (`number.*_pills_in_stock`, auto-decremented
 per confirmed dose, see storage.py) with its own low-stock warning - separate
@@ -73,7 +82,10 @@ from .const import (
     ACTION_CONFIRM_PILL_PREFIX,
     ACTION_POSTPONE_PILL_PREFIX,
     CATEGORY_CONTRACEPTION_RESTOCK,
+    CATEGORY_FERTILITY,
     CATEGORY_MISSED_DOSE,
+    CATEGORY_PERIOD,
+    CATEGORY_PMS,
     CONF_CYCLE_LENGTH,
     CONF_DEBUG_NOTIFICATIONS,
     CONF_ESCALATION_GRACE_MINUTES,
@@ -86,6 +98,7 @@ from .const import (
     CONF_PACK_SIZE,
     CONF_PAUSE_DAYS,
     CONF_PERIOD_DURATION,
+    CONF_PERIOD_HEADS_UP_DAYS,
     CONF_PMS_WINDOW_DAYS,
     CONF_REGIMEN_TYPE,
     CONF_REMINDER_TIME,
@@ -205,22 +218,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Run one check, then arrange the next one for the next instant that
         actually matters (see `_HEARTBEAT` above) - not a fixed interval.
 
-        Both halves are wrapped in their own try/except (v0.9.21): an
-        unhandled exception here would otherwise silently kill the whole
-        chain forever - the line that reschedules the *next* wake would
-        simply never run, and nothing would tell you why the reminder just
-        stopped coming entirely on some day. A bug in one check should cost
-        at most one missed check (falls back to a plain `_HEARTBEAT` retry),
-        never every future one - see CHANGELOG.md.
+        Every check (both the reschedule-computation and, since v0.9.29,
+        each of the two independent notification checks below) is wrapped
+        in its own try/except: an unhandled exception here would otherwise
+        silently kill the whole chain forever - the line that reschedules
+        the *next* wake would simply never run, and nothing would tell you
+        why the reminder just stopped coming entirely on some day. A bug in
+        one check should cost at most one missed check (falls back to a
+        plain `_HEARTBEAT` retry) and never take the *other*, unrelated
+        check down with it - see CHANGELOG.md.
         """
+        data.request_refresh()
         try:
-            data.request_refresh()
-            outcome = await _async_check_contraception_notifications(hass, entry, data)
+            contraception_outcome = await _async_check_contraception_notifications(hass, entry, data)
         except Exception as err:  # noqa: BLE001 - must never kill the reschedule chain, see above
             _LOGGER.exception(
-                "Perioder: notification check failed for '%s' - will retry in %s", entry.title, _HEARTBEAT
+                "Perioder: contraception notification check failed for '%s' - will retry in %s",
+                entry.title,
+                _HEARTBEAT,
             )
-            outcome = f"CHYBA při kontrole: {err} (detail v Nastavení > Systém > Logy)"
+            contraception_outcome = f"CHYBA při kontrole antikoncepce: {err} (detail v Nastavení > Systém > Logy)"
+        try:
+            cycle_outcome = await _async_check_cycle_notifications(hass, entry, data)
+        except Exception as err:  # noqa: BLE001 - same reasoning, independent of the check above
+            _LOGGER.exception(
+                "Perioder: cycle notification check failed for '%s' - will retry in %s", entry.title, _HEARTBEAT
+            )
+            cycle_outcome = f"CHYBA při kontrole cyklu: {err} (detail v Nastavení > Systém > Logy)"
+        outcome = f"{contraception_outcome} | {cycle_outcome}"
         try:
             next_at, next_reason = _compute_next_check_at(entry, data)
         except Exception as err:  # noqa: BLE001 - same reasoning
@@ -344,14 +369,43 @@ def _compute_next_check_at(entry: ConfigEntry, data: PerioderData) -> tuple[date
     now = local_now()
     today = local_today()
     settings = get_settings(entry)
+    notif_state = data.notifications
     candidates: list[tuple[datetime, str]] = [
         (now + _HEARTBEAT, "pravidelná kontrola (nejdéle za 5 min)"),
         (_next_local_midnight(now), "půlnoc (přechod na nový den)"),
     ]
 
+    # -- cycle transition notifications (v0.9.29) - independent of
+    # contraception, see _async_check_cycle_notifications() -------------
+    last_start = data.last_period_start
+    if last_start is not None and not notif_state["paused"]:
+        cycle_length = settings[CONF_CYCLE_LENGTH]
+        next_start = cm.next_period_date(last_start, cycle_length, today)
+        next_start_key = next_start.isoformat()
+
+        heads_up_days = settings[CONF_PERIOD_HEADS_UP_DAYS]
+        if heads_up_days > 0 and notif_state.get("period_notified_for") != next_start_key:
+            heads_up_at = datetime.combine(next_start - timedelta(days=heads_up_days), dt_time.min)
+            candidates.append((heads_up_at, "blížící se perioda (upozornění podporovatelům)"))
+
+        pms_days = settings[CONF_PMS_WINDOW_DAYS]
+        if pms_days > 0 and notif_state.get("pms_notified_for") != next_start_key:
+            pms_start, _pms_end = cm.pms_window(next_start, pms_days)
+            candidates.append(
+                (datetime.combine(pms_start, dt_time.min), "začátek PMS okna (upozornění podporovatelům)")
+            )
+
+        if notif_state.get("fertility_notified_for") != last_start.isoformat():
+            fertile_start, _fertile_end = cm.fertile_window_dates(last_start, cycle_length)
+            candidates.append(
+                (
+                    datetime.combine(fertile_start, dt_time.min),
+                    "začátek plodného okna (upozornění podporovatelům)",
+                )
+            )
+
     contraception = data.contraception
     if contraception["active"] and contraception["pack_start_date"]:
-        notif_state = data.notifications
         pack_start = dt_date.fromisoformat(contraception["pack_start_date"])
         day = pm.day_in_pack(pack_start, today, settings[CONF_PACK_SIZE], settings[CONF_PAUSE_DAYS])
         reminder_dt = datetime.combine(today, dt_time.fromisoformat(settings[CONF_REMINDER_TIME]))
@@ -651,6 +705,113 @@ async def _async_check_contraception_notifications(
     return prefix + f"čekám na další eskalaci (za cca {minutes_left} min)"
 
 
+async def _async_check_cycle_notifications(
+    hass: HomeAssistant, entry: ConfigEntry, data: PerioderData
+) -> str:
+    """Transition-triggered supporter notifications for the menstrual cycle
+    itself (v0.9.29) - closes the M4 scope note in this module's docstring.
+
+    Three independent, once-per-cycle notices:
+      - "blížící se perioda" (CATEGORY_PERIOD), `period_heads_up_days`
+        before the predicted start;
+      - PMS window just started (CATEGORY_PMS), the moment `today` reaches
+        the automatic `pms_window` start (the manual PMS override is a
+        display-only concept - see cycle_math.is_pms_active() - it doesn't
+        have a "start date" of its own, so it's not consulted here);
+      - fertile window just started (CATEGORY_FERTILITY).
+
+    Deliberately does NOT gate on `contraception.active` (unlike
+    `_async_check_contraception_notifications()`) - the cycle is tracked
+    whether or not the owner is also on contraception (see const.GOALS).
+    Still respects `notif_state["paused"]`, same as every other supporter
+    notification (ANALYZA-A-ROADMAP.md section 2.8 - pause mutes *all* of
+    them, not just the contraception ones).
+
+    Each notice is a dedup-by-cycle one-shot - same `restock_notified_for`
+    pattern as the contraception check (keyed to a value that moves forward
+    every cycle on its own, so it fires again automatically next cycle
+    without anything having to re-arm it by hand) - not a literal
+    "yesterday vs. today" comparison, since this only actually runs at the
+    exact instants `_compute_next_check_at()` schedules it for, not
+    continuously; see that function for the matching candidates.
+
+    Returns a short Czech summary for the debug trace, same convention as
+    `_async_check_contraception_notifications()`.
+    """
+    last_start = data.last_period_start
+    if last_start is None:
+        return "cyklus zatím nemá zapsaný začátek periody, není co hlídat"
+
+    notif_state = data.notifications
+    if notif_state["paused"]:
+        return "cyklus: notifikace jsou pozastavené"
+
+    settings = get_settings(entry)
+    today = local_today()
+    cycle_length = settings[CONF_CYCLE_LENGTH]
+    next_start = cm.next_period_date(last_start, cycle_length, today)
+    next_start_key = next_start.isoformat()
+    fertility_key = last_start.isoformat()
+
+    sent: list[str] = []
+
+    # -- blížící se perioda (N dní předem, 0 = vypnuto) ---------------------
+    heads_up_days = settings[CONF_PERIOD_HEADS_UP_DAYS]
+    if (
+        heads_up_days > 0
+        and notif_state.get("period_notified_for") != next_start_key
+        and today >= next_start - timedelta(days=heads_up_days)
+    ):
+        days_left = (next_start - today).days
+        await notifications.async_notify_supporters(
+            hass,
+            entry,
+            CATEGORY_PERIOD,
+            title="Perioder",
+            general_message="Blíží se perioda.",
+            detailed_message=f"Perioda se předpokládá za {days_left} dní ({next_start.strftime('%d.%m.')}).",
+        )
+        await data.async_mark_period_notified(next_start_key)
+        sent.append("blížící se perioda")
+
+    # -- start PMS okna (0 = vypnuto) -----------------------------------------
+    pms_days = settings[CONF_PMS_WINDOW_DAYS]
+    if pms_days > 0:
+        pms_start, _pms_end = cm.pms_window(next_start, pms_days)
+        if notif_state.get("pms_notified_for") != next_start_key and today >= pms_start:
+            await notifications.async_notify_supporters(
+                hass,
+                entry,
+                CATEGORY_PMS,
+                title="Perioder",
+                general_message="Začíná PMS okno - buď ohleduplný/á.",
+                detailed_message=(
+                    f"Začíná PMS okno ({pms_days} dní před predikovanou periodou "
+                    f"{next_start.strftime('%d.%m.')})."
+                ),
+            )
+            await data.async_mark_pms_notified(next_start_key)
+            sent.append("start PMS okna")
+
+    # -- start plodného okna --------------------------------------------------
+    fertile_start, fertile_end = cm.fertile_window_dates(last_start, cycle_length)
+    if notif_state.get("fertility_notified_for") != fertility_key and today >= fertile_start:
+        await notifications.async_notify_supporters(
+            hass,
+            entry,
+            CATEGORY_FERTILITY,
+            title="Perioder",
+            general_message="Začíná plodné okno.",
+            detailed_message=f"Začíná plodné okno (do {fertile_end.strftime('%d.%m.')}).",
+        )
+        await data.async_mark_fertility_notified(fertility_key)
+        sent.append("start plodného okna")
+
+    if not sent:
+        return "cyklus: nic nového k odeslání"
+    return "cyklus: odesláno - " + ", ".join(sent)
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
@@ -809,6 +970,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 ),
                 vol.Optional(CONF_ESCALATION_MAX_COUNT): vol.All(vol.Coerce(int), vol.Range(min=0, max=20)),
                 vol.Optional(CONF_RESTOCK_DAYS_BEFORE): vol.All(vol.Coerce(int), vol.Range(min=0, max=14)),
+                vol.Optional(CONF_PERIOD_HEADS_UP_DAYS): vol.All(vol.Coerce(int), vol.Range(min=0, max=14)),
                 vol.Optional(CONF_SHARED_CALENDAR_CATEGORIES): [vol.In(SHARED_CALENDAR_CATEGORIES)],
                 vol.Optional(CONF_LOW_STOCK_THRESHOLD): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
                 vol.Optional(CONF_NOTIFICATION_INTENSITY): vol.In(NOTIFICATION_INTENSITIES),

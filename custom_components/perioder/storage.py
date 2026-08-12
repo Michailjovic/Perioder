@@ -53,6 +53,15 @@ class NotificationState(TypedDict):
     restock_notified_for: str | None  # start date of the pack+pause cycle already notified about restock
     low_stock_notified: bool  # already warned about pills_in_stock being low (v0.8.0)
     snoozed_until: str | None  # isoformat datetime; reminder/escalation muted until then (v0.8.0)
+    # v0.9.29 - dedup keys for the cycle transition notifications (see
+    # __init__.py's _async_check_cycle_notifications()). Same
+    # "keyed to a value that changes every cycle, not the raw setting"
+    # pattern as restock_notified_for above - period/pms are keyed to that
+    # cycle's predicted next_period_date, fertility to that cycle's own
+    # last_period_start (see cycle_math.fertile_window_dates()).
+    period_notified_for: str | None  # "blížící se perioda" heads-up already sent for this next_period_date
+    pms_notified_for: str | None  # PMS-window-start notice already sent for this next_period_date
+    fertility_notified_for: str | None  # fertile-window-start notice already sent for this last_period_start
 
 
 class PerioderStorageData(TypedDict):
@@ -80,6 +89,9 @@ def _default_notifications() -> NotificationState:
         "restock_notified_for": None,
         "low_stock_notified": False,
         "snoozed_until": None,
+        "period_notified_for": None,
+        "pms_notified_for": None,
+        "fertility_notified_for": None,
     }
 
 
@@ -377,6 +389,32 @@ class PerioderData:
     async def async_mark_low_stock_notified(self) -> None:
         if self.data:
             self.data["notifications"]["low_stock_notified"] = True
+            await self.async_save()
+
+    async def async_mark_period_notified(self, next_period_date_key: str) -> None:
+        """Record that the "blížící se perioda" heads-up went out for the
+        cycle whose predicted start is `next_period_date_key` (see
+        cycle_math.next_period_date()) - v0.9.29.
+        """
+        if self.data:
+            self.data["notifications"]["period_notified_for"] = next_period_date_key
+            await self.async_save()
+
+    async def async_mark_pms_notified(self, next_period_date_key: str) -> None:
+        """Record that the PMS-window-start notice went out for the cycle
+        whose predicted start is `next_period_date_key` - v0.9.29.
+        """
+        if self.data:
+            self.data["notifications"]["pms_notified_for"] = next_period_date_key
+            await self.async_save()
+
+    async def async_mark_fertility_notified(self, last_period_start_key: str) -> None:
+        """Record that the fertile-window-start notice went out for the
+        cycle starting on `last_period_start_key` (see
+        cycle_math.fertile_window_dates()) - v0.9.29.
+        """
+        if self.data:
+            self.data["notifications"]["fertility_notified_for"] = last_period_start_key
             await self.async_save()
 
     async def async_snooze(self, until: datetime) -> None:

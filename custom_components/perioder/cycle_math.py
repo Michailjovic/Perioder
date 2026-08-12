@@ -91,6 +91,26 @@ def days_until_next_period(last_period_start: date, cycle_length: int, today: da
     return (next_period_date(last_period_start, cycle_length, today) - today).days
 
 
+def fertile_window_dates(last_period_start: date, cycle_length: int) -> tuple[date, date]:
+    """Return (start_date, end_date) of the *current* cycle's fertile window
+    as real calendar dates, inclusive - `fertile_window()` above only gives
+    1-based cycle-day numbers, which is enough for the calendar entity (it
+    iterates cycle-by-cycle itself, see calendar.py's
+    `_period_and_fertile_blocks()`), but the transition-triggered supporter
+    notification (v0.9.29, __init__.py's `_async_check_cycle_notifications()`)
+    needs one concrete date to compare against `today` and to key its
+    once-per-cycle dedup on. Unlike the contraception pack (which wraps
+    forward automatically via modulo, see pill_math.py), the cycle itself
+    always advances by the owner logging a fresh `last_period_start` - so
+    that value alone already identifies "the current cycle", no wraparound
+    math needed here.
+    """
+    start_day, end_day = fertile_window(cycle_length)
+    start = last_period_start + timedelta(days=start_day - 1)
+    end = last_period_start + timedelta(days=end_day - 1)
+    return start, end
+
+
 def pms_window(next_start: date, pms_window_days: int) -> tuple[date, date]:
     """Return (start_date, end_date) of the PMS window before `next_start`."""
     start = next_start - timedelta(days=pms_window_days)

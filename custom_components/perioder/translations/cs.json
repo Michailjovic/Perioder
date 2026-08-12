@@ -20,6 +20,7 @@
           "escalation_repeat_minutes": "Interval mezi eskalačními připomínkami (minuty)",
           "escalation_max_count": "Maximální počet eskalačních připomínek",
           "restock_days_before": "Upozornit podporovatele tolik dní před koncem balení",
+          "period_heads_up_days": "Upozornit podporovatele tolik dní před predikovanou periodou (0 = vypnuto)",
           "shared_calendar_categories": "Jaké typy bloků promítnout (obecně) do sdíleného kalendáře",
           "low_stock_threshold": "Práh nízké zásoby (upozornit, když sklad klesne na/pod tuto hodnotu)",
           "debug_notifications_enabled": "Zobrazovat diagnostickou notifikaci po každé kontrole"
@@ -56,6 +57,7 @@
           "escalation_repeat_minutes": "Interval mezi eskalačními připomínkami (minuty)",
           "escalation_max_count": "Maximální počet eskalačních připomínek",
           "restock_days_before": "Upozornit podporovatele tolik dní před koncem balení",
+          "period_heads_up_days": "Upozornit podporovatele tolik dní před predikovanou periodou (0 = vypnuto)",
           "shared_calendar_categories": "Jaké typy bloků promítnout (obecně) do sdíleného kalendáře",
           "low_stock_threshold": "Práh nízké zásoby (upozornit, když sklad klesne na/pod tuto hodnotu)",
           "debug_notifications_enabled": "Zobrazovat diagnostickou notifikaci po každé kontrole"

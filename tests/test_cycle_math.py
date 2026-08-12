@@ -7,7 +7,7 @@ future dates, and the PMS override persisting/resetting correctly.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from custom_components.perioder import cycle_math as cm
 
@@ -74,6 +74,30 @@ def test_days_until_next_period() -> None:
     last_start = date(2026, 7, 1)
     assert cm.days_until_next_period(last_start, CYCLE_LENGTH, date(2026, 7, 1)) == 28
     assert cm.days_until_next_period(last_start, CYCLE_LENGTH, date(2026, 7, 29)) == 0
+
+
+def test_fertile_window_dates_matches_cycle_day_window() -> None:
+    """fertile_window_dates() should land on the same days fertile_window()
+    (cycle-day numbers) + phase()/fertility() already agree line up with -
+    same reference cycle as test_fertile_window_matches_phase_ovulation()."""
+    last_start = date(2026, 7, 1)
+    start_day, end_day = cm.fertile_window(CYCLE_LENGTH)
+    start, end = cm.fertile_window_dates(last_start, CYCLE_LENGTH)
+    assert start == last_start + timedelta(days=start_day - 1)
+    assert end == last_start + timedelta(days=end_day - 1)
+    assert (end - start).days == end_day - start_day
+
+
+def test_fertile_window_dates_next_cycle_shifts_with_new_period_start() -> None:
+    """Unlike the contraception pack's modulo wraparound, the cycle's fertile
+    window only ever tracks the *current* logged last_period_start - a new
+    period start moves it forward by definition, no separate "current cycle"
+    lookup needed (see function docstring)."""
+    cycle1_start = date(2026, 7, 1)
+    cycle2_start = date(2026, 7, 29)
+    start1, _ = cm.fertile_window_dates(cycle1_start, CYCLE_LENGTH)
+    start2, _ = cm.fertile_window_dates(cycle2_start, CYCLE_LENGTH)
+    assert (start2 - start1).days == CYCLE_LENGTH
 
 
 def test_pms_window_before_next_period() -> None:

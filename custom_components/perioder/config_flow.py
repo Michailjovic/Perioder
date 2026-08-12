@@ -41,6 +41,7 @@ from .const import (
     CONF_PACK_SIZE,
     CONF_PAUSE_DAYS,
     CONF_PERIOD_DURATION,
+    CONF_PERIOD_HEADS_UP_DAYS,
     CONF_PMS_WINDOW_DAYS,
     CONF_REGIMEN_TYPE,
     CONF_REMINDER_TIME,
@@ -55,6 +56,7 @@ from .const import (
     DEFAULT_LOW_STOCK_THRESHOLD,
     DEFAULT_NOTIFICATION_INTENSITY,
     DEFAULT_PERIOD_DURATION,
+    DEFAULT_PERIOD_HEADS_UP_DAYS,
     DEFAULT_PMS_WINDOW_DAYS,
     DEFAULT_REGIMEN_TYPE,
     DEFAULT_REMINDER_TIME,
@@ -133,6 +135,13 @@ def _settings_schema(defaults: dict[str, Any]) -> vol.Schema:
             ): vol.All(vol.Coerce(int), vol.Range(min=0, max=20)),
             vol.Optional(
                 CONF_RESTOCK_DAYS_BEFORE, default=defaults[CONF_RESTOCK_DAYS_BEFORE]
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=14)),
+            # v0.9.29 - "blížící se perioda" heads-up to supporters subscribed
+            # to CATEGORY_PERIOD (0 disables it entirely, same convention as
+            # pms_window_days<=0/restock_days_before=0). See
+            # _async_check_cycle_notifications() in __init__.py.
+            vol.Optional(
+                CONF_PERIOD_HEADS_UP_DAYS, default=defaults[CONF_PERIOD_HEADS_UP_DAYS]
             ): vol.All(vol.Coerce(int), vol.Range(min=0, max=14)),
             vol.Optional(
                 CONF_SHARED_CALENDAR_CATEGORIES, default=defaults[CONF_SHARED_CALENDAR_CATEGORIES]
@@ -217,6 +226,7 @@ class PerioderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_ESCALATION_REPEAT_MINUTES: DEFAULT_ESCALATION_REPEAT_MINUTES,
             CONF_ESCALATION_MAX_COUNT: DEFAULT_ESCALATION_MAX_COUNT,
             CONF_RESTOCK_DAYS_BEFORE: DEFAULT_RESTOCK_DAYS_BEFORE,
+            CONF_PERIOD_HEADS_UP_DAYS: DEFAULT_PERIOD_HEADS_UP_DAYS,
             CONF_SHARED_CALENDAR_CATEGORIES: DEFAULT_SHARED_CALENDAR_CATEGORIES,
             CONF_LOW_STOCK_THRESHOLD: DEFAULT_LOW_STOCK_THRESHOLD,
             CONF_DEBUG_NOTIFICATIONS: DEFAULT_DEBUG_NOTIFICATIONS,
@@ -256,6 +266,7 @@ class PerioderOptionsFlow(OptionsFlowWithReload):
             self._options.setdefault(CONF_ESCALATION_REPEAT_MINUTES, DEFAULT_ESCALATION_REPEAT_MINUTES)
             self._options.setdefault(CONF_ESCALATION_MAX_COUNT, DEFAULT_ESCALATION_MAX_COUNT)
             self._options.setdefault(CONF_RESTOCK_DAYS_BEFORE, DEFAULT_RESTOCK_DAYS_BEFORE)
+            self._options.setdefault(CONF_PERIOD_HEADS_UP_DAYS, DEFAULT_PERIOD_HEADS_UP_DAYS)
             self._options.setdefault(CONF_SHARED_CALENDAR_CATEGORIES, DEFAULT_SHARED_CALENDAR_CATEGORIES)
             self._options.setdefault(CONF_LOW_STOCK_THRESHOLD, DEFAULT_LOW_STOCK_THRESHOLD)
             self._options.setdefault(CONF_NOTIFICATION_INTENSITY, DEFAULT_NOTIFICATION_INTENSITY)

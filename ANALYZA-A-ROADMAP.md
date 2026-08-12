@@ -170,12 +170,12 @@ Vlastní Home Assistant custom component pro řízení menstruačního cyklu a a
 - [x] `calendar.py` — predikce period/plodných dní/pauz balení (dopředu i zpětně), plus zobrazení logovaných `pill_log` záznamů (vzato/vynecháno) s výpočtem zpoždění oproti `reminder_time` (nápad z 2026-07-29, viz 2.1 a CHANGELOG v0.3.0)
 - [x] Služba: `update_settings`
 
-### M4 — Podporovatelé a notifikace ✅ z části (v0.4.0)
+### M4 — Podporovatelé a notifikace ✅ (v0.4.0, dotaženo v0.9.29)
 - [x] Datový model podporovatelů (cíl, kategorie, detail úroveň) — hotovo už v Options Flow (v0.1.1)
 - [x] Notifikační engine respektující odběry a úroveň detailu per příjemce (`notifications.py`)
 - [x] Denní připomínka antikoncepce + eskalace (přesunuto z M2 — viz CHANGELOG v0.2.0/v0.4.0), včetně "vynecháno" notifikace a propojení s fertilním oknem
 - [x] `perioder.pause_notifications` + `switch.pause_notifications`
-- [ ] **Nedokončeno, vědomě odloženo:** `pms`/`period`/`fertility` jako vlastní *transition-triggered* notifikace podporovatelům (např. "právě začalo PMS okno", "perioda za 2 dny") — odběry těchto kategorií existují od v0.1.1, dispatch engine z v0.4.0 už to umí odbavit, jen zatím nic tyhle 3 kategorie nespouští
+- [x] **Dotaženo ve v0.9.29:** `pms`/`period`/`fertility` jako vlastní *transition-triggered* notifikace podporovatelům — "blížící se perioda" (`period_heads_up_days` dní předem, nové nastavení), start PMS okna, start plodného okna. Nezávislé na `contraception.active`, respektují `pause_notifications`, dedup per cyklus stejným vzorem jako `restock_notified_for`. Viz `_async_check_cycle_notifications()` v `__init__.py`.
 - [x] Actionable notifikace (tlačítka "Vzal(a) jsem"/"Odložit" přímo v push notifikaci) — dokončeno v M8/v0.8.0, viz níže
 - [ ] Ověření proti reálné běžící Home Assistant instanci a reálnému mobile_app zařízení — zatím ověřeno jen logikou (standalone simulace rozhodovacího stromu), ne živým doručením notifikace
 
