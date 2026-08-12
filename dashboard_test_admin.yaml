@@ -1,21 +1,36 @@
-# Perioder v0.9.15 - JEDEN VIEW, SAMOSTATNÝ druhý dashboard (ne záložka) -
+# Perioder v0.9.28 - JEDEN VIEW, SAMOSTATNÝ druhý dashboard (ne záložka) -
 # admin/diagnostika: PMS okno, podporovatelé, korekce dat, testovací
 # notifikace, pauza notifikací, všechny kalendáře. Denní věci pro
 # cyklus-ownera jsou v dashboard_test.yaml.
 #
-# v0.9.14/15: celý obsah je teď v jednom vertical-stacku (stejný důvod jako
-# u dashboard_test.yaml - masonry view jinak karty přerovnává do víc
-# sloupců na širokém displeji) a přibyl přehledový kalendář se všemi
-# čtyřmi typy bloků (perioda/plodné dny/PMS/pauza) jako čtyři samostatné
-# entity, každá se svou (automaticky přiřazenou) barvou - vestavěná HA
-# kalendářová karta neumí vynutit konkrétní barvu přes YAML (0.9.14 to
-# zkoušelo, způsobovalo to nekonečné načítání karty, opraveno v 0.9.15).
-# PMS je tady schválně - tenhle dashboard je admin-only, PMS se
-# cyklus-ownerovi nezobrazuje (viz dashboard_test.yaml).
+# v0.9.28: dřívější TŘI samostatné kalendářové karty (přehled/detailní/
+# sdílený) jsou teď JEDNA karta se všemi sedmi kalendářovými entitami
+# (perioda/plodné dny/PMS/pauza/potvrzené tabletky/detailní/sdílený).
+# Vestavěná HA kalendářová karta u sebe sama ukazuje barevný checkbox pro
+# každou entitu v seznamu - jaké kalendáře se aktuálně zobrazují, se tak
+# přepíná přímo v GUI (klikem na checkbox), místo přepínání mezi třemi
+# kartami nebo úprav YAML. Tenhle výběr není nikde perzistentní napříč
+# zařízeními (drží ho jen prohlížeč) - je to vlastnost samotné HA karty,
+# Perioder do toho nezasahuje.
+#
+# v0.9.28 přidalo taky novou entitu `pill_calendar` (jen potvrzené/
+# vynechané tabletky, žádné bloky) - důvod: vestavěný kalendář (FullCalendar)
+# v měsíčním pohledu řadí víc-denní bloky (perioda/plodné dny) VŽDY před
+# jednodenní událost (tabletka), takže tabletka na dnech, kdy se překrývá
+# s periodou/plodností, dřív skoro vždy zmizela do "+n more" a musela se
+# rozklikávat. Když checkboxem vypneš blokové kalendáře a necháš jen
+# "potvrzené tabletky", nic už se nemá s čím přerat.
+#
+# v0.9.14/15 (pořád platí): celý obsah je v jednom vertical-stacku, aby
+# Lovelace masonry view karty nepřerovnávalo do víc sloupců podle šířky
+# obrazovky.
 #
 # Setup: stejný postup jako u dashboard_test.yaml - založ DRUHÝ, nový
 # dashboard od začátku, "Upravit v YAML" (jeden view), vlož celý tenhle
 # soubor.
+#
+# Pokud používáš jiný název integrace než "Test", nahraď "test" ve všech
+# entity_id níže svým vlastním slugem (zkontroluj Developer Tools > States).
 
 title: Admin
 path: perioder-test-admin
@@ -24,7 +39,7 @@ cards:
     cards:
       - type: markdown
         content: >-
-          **Perioder v0.9.15.** Tenhle dashboard je pro admina, ne pro
+          **Perioder v0.9.28.** Tenhle dashboard je pro admina, ne pro
           cyklus-ownera - proto tu je PMS okno, podporovatelé, testovací
           notifikace a korekce dat, co se v běžném dni neřeší. "Datum začátku
           balení" slouží jen na výslovné nastavení/opravu (stejně jako "Zapsat
@@ -32,12 +47,12 @@ cards:
           počítají samy dokola, nemusí se nastavovat znovu každý cyklus.
           "Testovací notifikace" pošle push okamžitě, bez ohledu na čas
           připomínky - dobré na ověření, že `owner_notify_device` a Companion
-          app fungují. "Kalendář cyklu (přehled)" dole ukazuje predikce
-          period/plodných dní/PMS/pauz balení jako čtyři samostatné barevně
-          odlišené entity; "Kalendář cyklu (detailní)" navíc zpětně ukazuje,
-          kdy byl prášek skutečně potvrzený (a o kolik pozdě); "Sdílený
-          kalendář" ukazuje jen generické "Citlivé období" bloky bez detailu
-          podle zaškrtnutých kategorií v Configure.
+          app fungují. Kalendář dole je JEDNA karta se všemi sedmi kalendáři
+          (perioda/plodné dny/PMS/pauza/potvrzené tabletky/detailní vč.
+          potvrzení prášků/sdílený bez detailu) - checkboxy nad kalendářem si
+          zapínáš/vypínáš, co chceš aktuálně vidět. "Sdílený kalendář"
+          ukazuje jen generické "Citlivé období" bloky bez detailu podle
+          zaškrtnutých kategorií v Configure.
 
       - type: glance
         title: Stav cyklu
@@ -151,32 +166,13 @@ cards:
         entities:
           - calendar.test_period_calendar
           - calendar.test_fertile_calendar
-          - calendar.test_pms_calendar
           - calendar.test_pause_calendar
-        initial_view: dayGridMonth
-        title: Kalendář cyklu (přehled)
-        card_mod:
-          style: |
-            ha-card {
-              min-height: 500px;
-            }
-
-      - type: calendar
-        entities:
+          - calendar.test_pill_calendar
+          - calendar.test_pms_calendar
           - calendar.test_cycle_calendar
-        initial_view: dayGridMonth
-        title: Kalendář cyklu (detailní, vč. potvrzení prášků)
-        card_mod:
-          style: |
-            ha-card {
-              min-height: 500px;
-            }
-
-      - type: calendar
-        entities:
           - calendar.test_shared_calendar
         initial_view: dayGridMonth
-        title: Sdílený kalendář (bez detailu)
+        title: Kalendář cyklu (checkboxy nad kalendářem = co je vidět)
         card_mod:
           style: |
             ha-card {

@@ -273,6 +273,9 @@
       },
       "pause_calendar": {
         "name": "Calendar - pack pause"
+      },
+      "pill_calendar": {
+        "name": "Calendar - confirmed pills"
       }
     },
     "switch": {

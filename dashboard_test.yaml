@@ -1,4 +1,4 @@
-# Perioder v0.9.15 - JEDEN VIEW (single VIEW, not a whole-dashboard file).
+# Perioder v0.9.28 - JEDEN VIEW (single VIEW, not a whole-dashboard file).
 # Denní věci pro cyklus-ownera. Admin/diagnostika je v samostatném souboru
 # dashboard_test_admin.yaml jako DRUHÝ, samostatný dashboard.
 #
@@ -16,6 +16,13 @@
 #      YAML (`entities: [{entity: ..., color: ...}]` v 0.9.14 způsobovalo
 #      nekonečné načítání karty - oprava v 0.9.15) - barvy jsou tak jen
 #      "nějak odlišné", ne nutně červená/zelená/šedá.
+#
+# v0.9.28: přibyla entita `pill_calendar` (jen potvrzené/vynechané
+# tabletky, žádné bloky) do kalendáře dole - tabletka na dnech, kdy se
+# překrývala s periodou/plodností, dřív mizela do "+n more" (vestavěný
+# kalendář víc-denní bloky vždy řadí před jednodenní událost). Nad
+# kalendářem jsou teď 4 barevné checkboxy (perioda/plodné dny/pauza/
+# tabletky) - co je aktuálně zapnuté/vypnuté, si přepínáš přímo tam.
 #
 # Setup:
 #   1. Integrace musí být pojmenovaná přesně "Test".
@@ -182,6 +189,7 @@ cards:
           - calendar.test_period_calendar
           - calendar.test_fertile_calendar
           - calendar.test_pause_calendar
+          - calendar.test_pill_calendar
         initial_view: dayGridMonth
         title: Kalendář cyklu
         card_mod:

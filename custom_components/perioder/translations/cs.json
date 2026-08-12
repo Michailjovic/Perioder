@@ -273,6 +273,9 @@
       },
       "pause_calendar": {
         "name": "Kalendář - pauza balení"
+      },
+      "pill_calendar": {
+        "name": "Kalendář - potvrzené tabletky"
       }
     },
     "switch": {

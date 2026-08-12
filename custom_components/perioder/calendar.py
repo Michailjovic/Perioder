@@ -1,6 +1,6 @@
 """Calendar platform for Perioder.
 
-Six `calendar` entities per cycle owner:
+Seven `calendar` entities per cycle owner:
 
 - `cycle_calendar` - the detailed, single-color one, all block kinds plus
   individual *logged* pill entries (taken/missed) with the confirmation
@@ -16,6 +16,20 @@ Six `calendar` entities per cycle owner:
   cycle owner's own dashboard (admin-only, same "supporters only, never
   the owner's own dashboard" convention as `binary_sensor.pms_active`) -
   the other three are fine for her to see directly.
+- `pill_calendar` (added 2026-08-12) - same *logged* pill_log entries as
+  `cycle_calendar`, but on their own entity with none of the period/
+  fertile/pms/pause blocks mixed in. Reason: FullCalendar's dayGridMonth
+  view sorts a day's events longest-duration-first by default (its
+  `eventOrder` default is `start,-duration,...`), so a single-day pill
+  entry sitting on top of a multi-day period/fertile block always loses
+  and collapses into the "+n more" popover - reordering the list this
+  module returns can't fix that, since FullCalendar re-sorts it anyway.
+  Putting pill entries on their own calendar entity means the Lovelace
+  card's built-in per-entity checkboxes (no YAML/code needed) let you
+  toggle the block calendars off and see pill days with nothing to
+  collapse behind, or combine them and just accept the popover on
+  crowded days - admin's choice, not something this integration can
+  force from the built-in card.
 - `shared_calendar` - generic "sensitive period" blocks with no detail
   (no distinction between period/fertile/pause in the label, never any
   pill confirmations), for exporting into a shared family calendar. Which
@@ -211,6 +225,7 @@ async def async_setup_entry(
             PerioderCategoryCalendar(entry, data, "fertile_calendar", "fertile"),
             PerioderCategoryCalendar(entry, data, "pms_calendar", "pms"),
             PerioderCategoryCalendar(entry, data, "pause_calendar", "pause"),
+            PerioderPillCalendar(entry, data),
         ]
     )
 
@@ -373,6 +388,54 @@ class PerioderSharedCalendar(CalendarEntity):
             if kind_to_category[kind] in enabled
         ]
 
+        return _sort_events(events)
+
+
+class PerioderPillCalendar(CalendarEntity):
+    """Only the *logged* pill_log entries (taken/missed), no blocks at all.
+
+    Same events as the pill_log part of `PerioderCalendar`, split onto its
+    own entity precisely so it can be viewed (or toggled on) without any
+    period/fertile/pms/pause block competing for the same day cell - see
+    the "pill_calendar" note in the module docstring.
+    """
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+
+    def __init__(self, entry: ConfigEntry, data: PerioderData) -> None:
+        self._entry = entry
+        self._data = data
+        self._attr_translation_key = "pill_calendar"
+        self.entity_id = f"calendar.{slugify(entry.title)}_pill_calendar"
+        self._attr_unique_id = f"{entry.entry_id}_pill_calendar"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=entry.title,
+            manufacturer="Perioder",
+        )
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(self._data.add_listener(self._handle_update))
+
+    def _handle_update(self) -> None:
+        self.async_write_ha_state()
+
+    @property
+    def event(self) -> CalendarEvent | None:
+        today = local_today()
+        events = self._events_between(today, today + timedelta(days=400))
+        return events[0] if events else None
+
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
+        return self._events_between(start_date.date(), end_date.date())
+
+    def _events_between(self, start_date: date, end_date: date) -> list[CalendarEvent]:
+        settings = get_settings(self._entry)
+        reminder_time = time.fromisoformat(settings["reminder_time"])
+        events = _pill_log_events(self._data.contraception["pill_log"], reminder_time, start_date, end_date)
         return _sort_events(events)
 
 

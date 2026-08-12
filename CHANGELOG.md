@@ -5,6 +5,34 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.28] - 2026-08-12
+
+### Added
+
+- New `calendar.*_pill_calendar` entity - the same *logged* pill_log
+  entries (taken/missed) `cycle_calendar` already showed, but on their
+  own entity with no period/fertile/pms/pause blocks mixed in. Reason:
+  the built-in HA calendar card (FullCalendar) sorts a day's events
+  longest-duration-first by default, so a single-day pill entry sharing a
+  day with a multi-day period/fertile block always lost and collapsed
+  into the "+n more" popover - no amount of reordering the list this
+  integration returns can fix that, since FullCalendar re-sorts it
+  anyway. Toggling the block calendars off via the card's own per-entity
+  checkboxes and leaving just "potvrzené tabletky" on now gives a pill
+  view with nothing left to collapse behind it.
+
+### Changed
+
+- Admin dashboard's three separate calendar cards (overview/detailed/
+  shared) merged into one card listing all seven calendar entities -
+  the built-in calendar card already shows a colored checkbox per
+  listed entity, so which calendars are visible is now a GUI toggle,
+  not something that needs a YAML edit per view. Same one-card change
+  applied to `dashboard_test_admin.yaml`. The owner-facing dashboards
+  (`dashboard_alina.yaml` / `dashboard_test.yaml`) keep their existing
+  restricted entity list (no PMS/detailed/shared) and just gained the
+  new `pill_calendar` entity in their one calendar card.
+
 ## [0.9.27] - 2026-08-09
 
 ### Added
