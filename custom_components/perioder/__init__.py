@@ -42,6 +42,14 @@ handled by config_flow.py + settings.py; this module only owns the runtime
 Store (storage.py) for cycle/contraception/symptom state. Because the
 options flow uses `OptionsFlowWithReload`, editing settings or supporters
 reloads the entry automatically - there is no manual update listener here.
+
+v0.9.30 adds `async_setup()` (below), which registers a bundled custom
+Lovelace card (`perioder-calendar-card`, see `frontend/`) as a frontend
+resource - a month-grid calendar with fixed per-category colors and an
+always-visible pill-taken badge, replacing the built-in `type: calendar`
+card's two unfixable limitations (auto-assigned colors, and a single-day
+event losing to "+n more" behind multi-day blocks). See
+CALENDAR-CARD-ADR.md for the full design history.
 """
 from __future__ import annotations
 
@@ -69,15 +77,24 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
+from homeassistant.core import (
+    EVENT_HOMEASSISTANT_STARTED,
+    CoreState,
+    Event,
+    HomeAssistant,
+    ServiceCall,
+    callback,
+)
 from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.helpers.start import async_at_started
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
 
 from . import cycle_math as cm
 from . import notifications
 from . import pill_math as pm
+from .frontend import JSModuleRegistration
 from .const import (
     ACTION_CONFIRM_PILL_PREFIX,
     ACTION_POSTPONE_PILL_PREFIX,
@@ -202,6 +219,36 @@ def _get_entry(hass: HomeAssistant, config_entry_id: str) -> ConfigEntry:
     if entry is None or entry.entry_id not in hass.data.get(DOMAIN, {}):
         raise ValueError(f"Unknown Perioder cycle owner: {config_entry_id}")
     return entry
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the bundled `perioder-calendar-card` frontend resource (v0.9.30).
+
+    This is the integration-wide setup hook, called once per Home Assistant
+    instance regardless of how many Perioder config entries (cycle owners)
+    exist - deliberately NOT done in `async_setup_entry()` below, which runs
+    once *per config entry* and would otherwise try to register the same
+    Lovelace resource redundantly for every cycle owner. See
+    CALENDAR-CARD-ADR.md for the full rationale and the reference this
+    pattern is based on.
+
+    Registration is deferred to `EVENT_HOMEASSISTANT_STARTED` on a fresh
+    boot (Lovelace's own resource storage may not be ready any earlier -
+    same "don't race other integrations' startup" reasoning as
+    `_async_initial_run()` below) - but runs immediately if HA has already
+    finished starting, which is the normal case for a config entry
+    reload/first setup while HA is already running.
+    """
+
+    async def _register_frontend(_event: Event | None = None) -> None:
+        await JSModuleRegistration(hass).async_register()
+
+    if hass.state == CoreState.running:
+        await _register_frontend()
+    else:
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _register_frontend)
+
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

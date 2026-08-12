@@ -5,6 +5,49 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.30] - 2026-08-13
+
+### Added
+
+- `custom:perioder-calendar-card` - vlastní, do repozitáře přibalená
+  Lovelace kalendářová karta (`custom_components/perioder/frontend/`),
+  navržená a odsouhlasená v `CALENDAR-CARD-ADR.md`. Řeší dvě dlouhodobě
+  neřešitelné limitace vestavěné HA `type: calendar` karty:
+  - **Pevné barvy per kategorie** - admin je nastaví přes vizuální editor
+    karty (`getConfigElement()`, barevné pickery s tlačítkem "vrátit
+    doporučenou barvu" u každé) místo automatického přiřazování podle
+    pořadí entit. Barvy jsou jen doporučení, ne vynucené.
+  - **Tabletka už nezmizí za "+n more"** - volitelný `pill_entity` v
+    konfiguraci se vykresluje jako malá ikonka přímo na dni, mimo
+    obvyklé "kolik událostí se vejde do buňky" počítání, na rozdíl od
+    FullCalendar (co pohání vestavěnou kartu), který v přeplněném dni
+    vždy upřednostní víc-denní blok před jednodenní událostí.
+  - Editor navíc řídí, které kategorie/entity karta vůbec nabízí
+    (dvouúrovňové řízení - admin v editoru rozhoduje "co tahle karta
+    smí zobrazit", běhová legenda pod kalendářem jen přepíná viditelnost
+    v rámci toho, co admin povolil - stejný princip, jaký už Perioder má
+    u PMS viditelnosti).
+  - Víc-denní bloky nesou vlastní textový popisek přímo v pruhu (např.
+    "Perioda"), ne jen barvu.
+  - Žádný build krok - čistý JS Web Component (žádný Lit/React/webpack).
+  - Vizuálně inspirováno `calendar-card-pro` (odlišení víkendu, kruhový
+    "dnes" odznak, pastelově tónované pruhy) - viz ADR pro zdroje.
+- `manifest.json`: `dependencies: ["frontend", "http"]` (nutné pro
+  registraci frontend resource) a nová `async_setup()` v `__init__.py`,
+  která kartu registruje jednou za HA instanci (ne per config entry) při
+  startu HA - viz `frontend/__init__.py` (`JSModuleRegistration`).
+
+### Changed
+
+- `dashboard_alina.yaml`/`dashboard_test.yaml`: přehledový kalendář teď
+  používá novou kartu místo vestavěné (4 entity + `pill_entity`), bez
+  potřeby `card-mod` na výšku karty.
+- `dashboard_alina_admin.yaml`/`dashboard_test_admin.yaml`: přehledový
+  kalendář (perioda/plodné dny/PMS/pauza/tabletka) na nové kartě;
+  detailní (`cycle_calendar`) a sdílený (`shared_calendar`) kalendář
+  zůstávají na vestavěné kartě - jsou to jednotlivé entity bez
+  barevného konfliktu mezi kategoriemi, který nová karta řeší.
+
 ## [0.9.29] - 2026-08-12
 
 ### Added

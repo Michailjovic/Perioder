@@ -1,4 +1,4 @@
-# Perioder v0.9.28 - JEDEN VIEW (single VIEW, not a whole-dashboard file).
+# Perioder v0.9.30 - JEDEN VIEW (single VIEW, not a whole-dashboard file).
 # Denní věci pro cyklus-ownera. Admin/diagnostika je v samostatném souboru
 # dashboard_test_admin.yaml jako DRUHÝ, samostatný dashboard.
 #
@@ -9,24 +9,21 @@
 #      kalendář skákaly do jiného sloupce než zbytek). Vertical-stack se
 #      počítá jako JEDNA karta, takže se pořadí shora dolů už nemění.
 #   2. Kalendář dole už neukazuje PMS (to je jen pro admina, viz
-#      dashboard_test_admin.yaml) - místo jedné entity `cycle_calendar`
-#      teď kombinuje tři samostatné entity (perioda/plodné dny/pauza), z
-#      nichž každá dostane svou (automaticky přiřazenou) barvu. Vestavěná
-#      HA kalendářová karta bohužel neumí vynutit KONKRÉTNÍ barvu přes
-#      YAML (`entities: [{entity: ..., color: ...}]` v 0.9.14 způsobovalo
-#      nekonečné načítání karty - oprava v 0.9.15) - barvy jsou tak jen
-#      "nějak odlišné", ne nutně červená/zelená/šedá.
+#      dashboard_test_admin.yaml).
 #
-# v0.9.28: přibyla entita `pill_calendar` (jen potvrzené/vynechané
-# tabletky, žádné bloky) do kalendáře dole - tabletka na dnech, kdy se
-# překrývala s periodou/plodností, dřív mizela do "+n more" (vestavěný
-# kalendář víc-denní bloky vždy řadí před jednodenní událost). Nad
-# kalendářem jsou teď 4 barevné checkboxy (perioda/plodné dny/pauza/
-# tabletky) - co je aktuálně zapnuté/vypnuté, si přepínáš přímo tam.
+# v0.9.30: kalendář dole je teď vlastní karta `custom:perioder-calendar-card`
+# (viz CALENDAR-CARD-ADR.md) místo vestavěné HA kalendářové karty - žádný
+# card-mod trik na výšku, žádné "barvy jsou jen nějak odlišené". Barvy jsou
+# pevné a admin je může upravit přes editor karty (tužka > upravit v GUI,
+# ne jen YAML). Tabletková ikonka je vidět i v den, kdy zrovna běží
+# perioda/plodné okno - dřív mizela za "+n more".
 #
 # Setup:
 #   1. Integrace musí být pojmenovaná přesně "Test".
-#   2. HACS > Frontend > "card-mod" nainstalovaný (kalendář).
+#   2. Po instalaci/aktualizaci na v0.9.30 restartuj HA nebo znovu načti
+#      integraci (Nastavení > Zařízení a služby > Perioder > tři tečky >
+#      Znovu načíst) - jen tak se zaregistruje nová Lovelace resource s
+#      kartou.
 #   3. Nastavení > Ovládací panely > "Přidat ovládací panel" > "Nový panel
 #      od začátku" > otevřít > tužka (edit mode) > tři tečky > "Upravit v
 #      YAML" (edituje jen tenhle jeden view).
@@ -184,16 +181,16 @@ cards:
           Naposledy zapsáno: **{{ map.get(sym, sym) }}**
           {% endif %}
 
-      - type: calendar
-        entities:
-          - calendar.test_period_calendar
-          - calendar.test_fertile_calendar
-          - calendar.test_pause_calendar
-          - calendar.test_pill_calendar
-        initial_view: dayGridMonth
+      - type: custom:perioder-calendar-card
         title: Kalendář cyklu
-        card_mod:
-          style: |
-            ha-card {
-              min-height: 500px;
-            }
+        entities:
+          - entity: calendar.test_period_calendar
+            color: "#E24B4A"
+            icon: mdi:water
+          - entity: calendar.test_fertile_calendar
+            color: "#378ADD"
+            icon: mdi:flower
+          - entity: calendar.test_pause_calendar
+            color: "#7F77DD"
+            icon: mdi:moon-waning-crescent
+        pill_entity: calendar.test_pill_calendar
