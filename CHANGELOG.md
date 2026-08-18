@@ -5,6 +5,39 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.31] - 2026-08-18
+
+### Fixed
+
+- `perioder-calendar-card` se po nasazení v0.9.30 živě vůbec neobjevila -
+  "Custom element doesn't exist: perioder-calendar-card" i po plném
+  restartu HA. Dvě chyby v `frontend/__init__.py`
+  (`JSModuleRegistration`), obě v logice okolo automatické registrace
+  Lovelace resource:
+  - `hass.data["lovelace"]` je dataclass `LovelaceData`, jejíž pole se
+    jmenuje `resource_mode`, ne `mode` - `mode` na ní vůbec neexistuje.
+    Starý kód četl `getattr(self.lovelace, "mode", None)`, což bylo vždy
+    `None`, takže se vždy vyhodnotilo jako "YAML mode" a automatická
+    registrace se přeskočila (jen debug log) - i na instanci, která je
+    reálně ve storage módu. Opraveno čtením `resource_mode`.
+  - `ResourceStorageCollection.loaded` se nastaví na `True` až poté, co
+    něco explicitně zavolá `resources.async_load()` - typicky až když
+    admin poprvé po restartu otevře Nastavení > Dashboardy > Zdroje.
+    Starý kód jen pasivně čekal na `.loaded` (kontrola po 5s), aniž by
+    načtení sám vynutil - na instanci, kde stránku Zdroje nikdo
+    neotevřel, čekání nikdy neskončí a resource se nikdy nevytvoří.
+    Opraveno voláním `resources.async_get_info()`, které má vlastní
+    "lazy-load guard" HA jádra (`if not self.loaded: await
+    self.async_load()`) a načtení vynutí okamžitě.
+  - Mimochodem: nechráněné volání `async_items()`/`async_create_item()`
+    na ještě nenačtené `ResourceStorageCollection` je reálná chyba HA
+    jádra jinde - tiše přepsala a smazala celý
+    `.storage/lovelace_resources` (home-assistant/core#165767, opraveno
+    v home-assistant/core#165773). Vynucené načtení přes
+    `async_get_info()` před jakýmkoli zápisem znamená, že se tahle
+    integrace tomu nemůže vystavit ani na starší verzi HA, která opravu
+    jádra ještě nemá.
+
 ## [0.9.30] - 2026-08-13
 
 ### Added
