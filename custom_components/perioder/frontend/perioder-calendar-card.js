@@ -3,9 +3,24 @@
  *
  * Vanilla Web Component (no Lit, no build step - see CALENDAR-CARD-ADR.md
  * "Zvažované varianty", option A vs B) month-grid calendar for Perioder.
- * Reads events from any `calendar.*` entity via the same WebSocket call the
- * built-in HA calendar card uses (`calendar/event/list`), so it works with
- * Perioder's own calendar entities without any backend changes.
+ * Reads events from any `calendar.*` entity via the same REST endpoint the
+ * built-in HA calendar card/dialog uses (`GET /api/calendars/{entity_id}
+ * ?start=..&end=..`, called via `hass.callApi('GET', ...)` - see
+ * home-assistant/frontend's `src/data/calendar.ts`, `fetchCalendarEvents`),
+ * so it works with Perioder's own calendar entities without any backend
+ * changes.
+ *
+ * v0.9.32 fix (2026-08-19): the first live test rendered the header/legend/
+ * grid fine but showed zero events on any day. Root cause - this card used
+ * to call `hass.callWS({type: 'calendar/event/list', ...})`, a websocket
+ * command that **does not exist** in HA core (confirmed against
+ * home-assistant/core's `calendar/__init__.py` on the `dev` branch - the
+ * only registered `calendar/event/*` WS commands are `create`/`update`/
+ * `delete`/`subscribe`, none named `list`). Every call therefore threw,
+ * was swallowed by the per-entity `try/catch` here, and silently resolved
+ * to an empty event list for every entity - card looked "connected" but
+ * never had anything to draw. Fixed by switching to the REST endpoint
+ * above, which is what HA's own calendar card/dialog actually use.
  *
  * Two problems this exists to solve (see calendar.py's own docstring +
  * CALENDAR-CARD-ADR.md for the full history):
@@ -32,8 +47,10 @@
  *
  * All-day event date semantics follow the same convention calendar.py
  * already uses throughout (end date is EXCLUSIVE - "start <= day < end"),
- * which is also what Home Assistant's calendar/event/list WS command
- * returns for all-day CalendarEvents.
+ * which is also what Home Assistant's `/api/calendars/{entity_id}` REST
+ * endpoint returns for all-day CalendarEvents (`{"date": "YYYY-MM-DD"}`
+ * per event's `start`/`end` - see `_api_event_dict_factory` in
+ * home-assistant/core's `calendar/__init__.py`).
  */
 
 const DEFAULT_COLORS = ['#E24B4A', '#378ADD', '#BA7517', '#7F77DD', '#1D9E75', '#D4537E'];
@@ -160,16 +177,16 @@ class PerioderCalendarCard extends HTMLElement {
     if (this._config.pill_entity) entityIds.push(this._config.pill_entity);
 
     const results = {};
+    const qs =
+      '?start=' + encodeURIComponent(gridStart.toISOString()) + '&end=' + encodeURIComponent(gridEnd.toISOString());
     await Promise.all(
       entityIds.map(async (entityId) => {
         try {
-          const res = await this._hass.callWS({
-            type: 'calendar/event/list',
-            entity_id: entityId,
-            start: gridStart.toISOString(),
-            end: gridEnd.toISOString(),
-          });
-          results[entityId] = (res && res.events) || [];
+          // REST, not WS - see module docstring "v0.9.32 fix". Response is
+          // a bare array of events (not wrapped in `{events: [...]}` the
+          // way the old, nonexistent WS call would have been).
+          const res = await this._hass.callApi('GET', 'calendars/' + encodeURIComponent(entityId) + qs);
+          results[entityId] = Array.isArray(res) ? res : [];
         } catch (err) {
           results[entityId] = [];
         }
@@ -468,7 +485,12 @@ class PerioderCalendarCardEditor extends HTMLElement {
   }
 
   _entryFor(entityId) {
-    return (this._config.entities || []).find((e) => e.entity === entityId);
+    // v0.9.32 fix: `hass` can be set on the editor element before
+    // `setConfig()` ever runs (HA's dashboard editor doesn't guarantee
+    // ordering), which used to throw "Cannot read properties of
+    // undefined (reading 'entities')" here - `this._config` itself was
+    // undefined at that point, not just `.entities`. Guard both.
+    return ((this._config && this._config.entities) || []).find((e) => e.entity === entityId);
   }
 
   _updateConfig(newConfig) {
@@ -477,7 +499,9 @@ class PerioderCalendarCardEditor extends HTMLElement {
   }
 
   _toggleEntity(entityId, checked, defaultColor) {
-    let entities = (this._config.entities || []).slice();
+    // v0.9.32 fix: same `this._config` may-be-undefined race as
+    // `_entryFor` - guard before reading `.entities` off it.
+    let entities = ((this._config && this._config.entities) || []).slice();
     if (checked) {
       if (!entities.some((e) => e.entity === entityId)) {
         entities.push({ entity: entityId, color: defaultColor });
@@ -489,12 +513,15 @@ class PerioderCalendarCardEditor extends HTMLElement {
   }
 
   _setColor(entityId, color) {
-    const entities = (this._config.entities || []).map((e) => (e.entity === entityId ? Object.assign({}, e, { color }) : e));
+    const entities = ((this._config && this._config.entities) || []).map((e) =>
+      e.entity === entityId ? Object.assign({}, e, { color }) : e
+    );
     this._updateConfig(Object.assign({}, this._config, { entities }));
   }
 
   _setPill(entityId, checked) {
-    const nextPill = checked ? entityId : this._config.pill_entity === entityId ? undefined : this._config.pill_entity;
+    const currentPill = this._config && this._config.pill_entity;
+    const nextPill = checked ? entityId : currentPill === entityId ? undefined : currentPill;
     const next = Object.assign({}, this._config, { pill_entity: nextPill });
     if (nextPill === undefined) delete next.pill_entity;
     this._updateConfig(next);

@@ -5,6 +5,34 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.32] - 2026-08-19
+
+### Fixed
+
+- Po opravě v0.9.31 se `perioder-calendar-card` konečně na dashboardu
+  objevila (registrace resource fungovala), ale ukazovala jen prázdnou
+  mřížku s dnešním datem - žádné barevné pruhy událostí. Dvě samostatné
+  chyby v `frontend/perioder-calendar-card.js`:
+  - `_fetchEvents()` volala `hass.callWS({type: 'calendar/event/list',
+    ...})` - websocket příkaz, který **v HA jádru vůbec neexistuje**
+    (ověřeno proti `calendar/__init__.py` na větvi `dev` - jediné
+    registrované `calendar/event/*` WS příkazy jsou `create`/`update`/
+    `delete`/`subscribe`, žádný `list`). Každé volání tedy vyhodilo
+    chybu, tichost pohlcenou `try/catch`, a pro každou entitu se dosadil
+    prázdný seznam událostí - karta vypadala funkčně, ale neměla co
+    kreslit. Opraveno přechodem na `hass.callApi('GET',
+    'calendars/{entity_id}?start=..&end=..')` - stejný REST endpoint,
+    který používá vestavěná HA kalendářová karta/dialog
+    (`fetchCalendarEvents` v `home-assistant/frontend`).
+  - Vizuální editor karty (`PerioderCalendarCardEditor._entryFor()` a tři
+    další metody) čet(ly) `this._config.entities`/`.pill_entity` bez
+    ochrany proti tomu, že `this._config` sám může být `undefined` -
+    HA negarantuje pořadí, ve kterém dashboard editoru nastaví `hass` a
+    zavolá `setConfig()`. Projevovalo se jako "Configuration error:
+    Cannot read properties of undefined (reading 'entities')" v editoru
+    karty. Opraveno přidáním `this._config && ...` ochrany všude, kde se
+    na `_config` sahá přímo.
+
 ## [0.9.31] - 2026-08-18
 
 ### Fixed
