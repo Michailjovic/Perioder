@@ -9,145 +9,158 @@ section 8 for what the pre-1.0.0 range means for this project specifically.
 
 ### Changed
 
-- `perioder-calendar-card`: vizuální a interakční přestavba po zpětné
-  vazbě z prvního živého vyzkoušení ("opticky rozpadnuté", chybějící
-  klikatelnost). Přepracováno s myšlenkou, že tuhle kartu můžou chtít
-  používat i lidé bez návaznosti na Perioder jako obecný kalendář:
-  - **Jedna souvislá mřížka místo dvou.** Čísla dnů a pruhy událostí dřív
-    žily ve dvou oddělených CSS gridech s mezerou mezi nimi, což
-    vypadalo jako dva nesouvisející kusy. Teď je to jeden grid na
-    týden - den je skutečná ohraničená buňka (jde přes celou výšku
-    týdne včetně řádků s pruhy), navíc s viditelnými linkami mřížky
-    (svislé mezi sloupci, vodorovné mezi týdny, zaoblený rámeček okolo
-    celého měsíce) - vypadá jako "opravdový" kalendář, ne jako čísla s
-    barevnými proužky poblíž.
-  - **Chytřejší skládání pruhů (packing).** Dřív měla každá kategorie
-    napevno svůj řádek po celý měsíc, i ve týdnech, kde se s ničím
-    nepřekrývala - zbytečně to zabíralo místo (2-3 prázdné řádky v
-    týdnech s jedním aktivním pruhem). Teď se pruhy pro každý týden
-    balí zvlášť (klasický greedy interval scheduling - stejný princip
-    jako Google Calendar), takže týden dostane jen tolik řádků, kolik
-    se v něm reálně překrývá.
-  - **Legenda nahoře je teď klikatelná.** Kliknutí na "chip" v legendě
-    schová/zobrazí danou kategorii (i tabletku) v celém kalendáři -
-    stejná myšlenka jako checkboxy u vestavěné HA karty, jen o úroveň
-    výš (ovládá to admin karty v editoru, jestli entita "smí" být
-    vůbec nabídnutá; runtime legenda pak jen přepíná viditelnost v
-    rámci toho). Skrytá kategorie zprůhlední a přeškrtne se v legendě.
-    Je to jen zobrazovací preference (v paměti karty), nezapisuje se
-    zpátky do YAML konfigurace.
-  - **Klik na den teď zjevně funguje a je vidět kde.** Celá buňka dne
-    (ne jen číslo) je klikatelná a po kliknutí se zvýrazní rámečkem;
-    detail dne se vykresluje přímo pod týdnem, do kterého den patří
-    (dřív se lepil na úplný konec celé karty, vizuálně nesouvisel s
-    kliknutým dnem).
-  - Ověřeno vizuálně přes headless Chromium (Playwright) s
-    fixture daty napodobujícími reálný dashboard - viz screenshoty v
-    konverzaci 2026-08-19, ne jen `node --check`.
+- `perioder-calendar-card`: visual and interaction rebuild following
+  feedback from the first live trial ("visually falling apart",
+  missing clickability). Reworked around the idea that people with no
+  connection to Perioder might also want to use this card as a
+  general-purpose calendar:
+  - **One continuous grid instead of two.** Day numbers and event bars
+    used to live in two separate CSS grids with a gap between them,
+    which looked like two unrelated pieces. Now it's a single grid per
+    week - a day is a real bordered cell (spanning the full height of
+    the week, including the bar rows), plus visible grid lines
+    (vertical between columns, horizontal between weeks, a rounded
+    border around the whole month) - it looks like a "real" calendar,
+    not numbers with colored stripes nearby.
+  - **Smarter bar packing.** Previously every category had a fixed row
+    for the whole month, even in weeks where it didn't overlap with
+    anything - wasting space (2-3 empty rows in weeks with only one
+    active bar). Now bars are packed per week (classic greedy interval
+    scheduling - the same approach Google Calendar uses), so a week
+    only gets as many rows as it actually needs to cover its real
+    overlaps.
+  - **The legend at the top is now clickable.** Clicking a "chip" in
+    the legend hides/shows that category (including the pill) across
+    the whole calendar - the same idea as the checkboxes on the
+    built-in HA card, just one level up (the admin controls in the
+    card editor whether an entity is even offered at all; the runtime
+    legend then just toggles visibility within that). A hidden
+    category becomes translucent and gets struck through in the
+    legend. This is purely a display preference (held in the card's
+    memory), it isn't written back to the YAML configuration.
+  - **Clicking a day now visibly works, and it's clear where.** The
+    whole day cell (not just the number) is clickable and highlights
+    with a border on click; the day detail now renders directly below
+    the week the day belongs to (previously it was tacked onto the
+    very end of the whole card, visually disconnected from the
+    clicked day).
+  - Verified visually via headless Chromium (Playwright) with fixture
+    data mimicking a real dashboard - see the screenshots in the
+    2026-08-19 conversation, not just `node --check`.
 
 ## [0.9.32] - 2026-08-19
 
 ### Fixed
 
-- Po opravě v0.9.31 se `perioder-calendar-card` konečně na dashboardu
-  objevila (registrace resource fungovala), ale ukazovala jen prázdnou
-  mřížku s dnešním datem - žádné barevné pruhy událostí. Dvě samostatné
-  chyby v `frontend/perioder-calendar-card.js`:
-  - `_fetchEvents()` volala `hass.callWS({type: 'calendar/event/list',
-    ...})` - websocket příkaz, který **v HA jádru vůbec neexistuje**
-    (ověřeno proti `calendar/__init__.py` na větvi `dev` - jediné
-    registrované `calendar/event/*` WS příkazy jsou `create`/`update`/
-    `delete`/`subscribe`, žádný `list`). Každé volání tedy vyhodilo
-    chybu, tichost pohlcenou `try/catch`, a pro každou entitu se dosadil
-    prázdný seznam událostí - karta vypadala funkčně, ale neměla co
-    kreslit. Opraveno přechodem na `hass.callApi('GET',
-    'calendars/{entity_id}?start=..&end=..')` - stejný REST endpoint,
-    který používá vestavěná HA kalendářová karta/dialog
-    (`fetchCalendarEvents` v `home-assistant/frontend`).
-  - Vizuální editor karty (`PerioderCalendarCardEditor._entryFor()` a tři
-    další metody) čet(ly) `this._config.entities`/`.pill_entity` bez
-    ochrany proti tomu, že `this._config` sám může být `undefined` -
-    HA negarantuje pořadí, ve kterém dashboard editoru nastaví `hass` a
-    zavolá `setConfig()`. Projevovalo se jako "Configuration error:
-    Cannot read properties of undefined (reading 'entities')" v editoru
-    karty. Opraveno přidáním `this._config && ...` ochrany všude, kde se
-    na `_config` sahá přímo.
+- After the v0.9.31 fix, `perioder-calendar-card` finally showed up
+  on the dashboard (resource registration worked), but only showed an
+  empty grid with today's date - no colored event bars. Two separate
+  bugs in `frontend/perioder-calendar-card.js`:
+  - `_fetchEvents()` called `hass.callWS({type: 'calendar/event/list',
+    ...})` - a websocket command that **doesn't exist in HA core at
+    all** (confirmed against `calendar/__init__.py` on the `dev`
+    branch - the only registered `calendar/event/*` WS commands are
+    `create`/`update`/`delete`/`subscribe`, no `list`). Every call
+    therefore threw an error, silently swallowed by `try/catch`, and
+    an empty event list was substituted for every entity - the card
+    looked functional but had nothing to draw. Fixed by switching to
+    `hass.callApi('GET', 'calendars/{entity_id}?start=..&end=..')` -
+    the same REST endpoint the built-in HA calendar card/dialog uses
+    (`fetchCalendarEvents` in `home-assistant/frontend`).
+  - The card's visual editor (`PerioderCalendarCardEditor._entryFor()`
+    and three other methods) read `this._config.entities`/
+    `.pill_entity` without guarding against `this._config` itself
+    possibly being `undefined` - HA doesn't guarantee the order in
+    which the dashboard editor sets `hass` and calls `setConfig()`.
+    This showed up as "Configuration error: Cannot read properties of
+    undefined (reading 'entities')" in the card editor. Fixed by
+    adding `this._config && ...` guards everywhere `_config` is
+    accessed directly.
 
 ## [0.9.31] - 2026-08-18
 
 ### Fixed
 
-- `perioder-calendar-card` se po nasazení v0.9.30 živě vůbec neobjevila -
-  "Custom element doesn't exist: perioder-calendar-card" i po plném
-  restartu HA. Dvě chyby v `frontend/__init__.py`
-  (`JSModuleRegistration`), obě v logice okolo automatické registrace
-  Lovelace resource:
-  - `hass.data["lovelace"]` je dataclass `LovelaceData`, jejíž pole se
-    jmenuje `resource_mode`, ne `mode` - `mode` na ní vůbec neexistuje.
-    Starý kód četl `getattr(self.lovelace, "mode", None)`, což bylo vždy
-    `None`, takže se vždy vyhodnotilo jako "YAML mode" a automatická
-    registrace se přeskočila (jen debug log) - i na instanci, která je
-    reálně ve storage módu. Opraveno čtením `resource_mode`.
-  - `ResourceStorageCollection.loaded` se nastaví na `True` až poté, co
-    něco explicitně zavolá `resources.async_load()` - typicky až když
-    admin poprvé po restartu otevře Nastavení > Dashboardy > Zdroje.
-    Starý kód jen pasivně čekal na `.loaded` (kontrola po 5s), aniž by
-    načtení sám vynutil - na instanci, kde stránku Zdroje nikdo
-    neotevřel, čekání nikdy neskončí a resource se nikdy nevytvoří.
-    Opraveno voláním `resources.async_get_info()`, které má vlastní
-    "lazy-load guard" HA jádra (`if not self.loaded: await
-    self.async_load()`) a načtení vynutí okamžitě.
-  - Mimochodem: nechráněné volání `async_items()`/`async_create_item()`
-    na ještě nenačtené `ResourceStorageCollection` je reálná chyba HA
-    jádra jinde - tiše přepsala a smazala celý
-    `.storage/lovelace_resources` (home-assistant/core#165767, opraveno
-    v home-assistant/core#165773). Vynucené načtení přes
-    `async_get_info()` před jakýmkoli zápisem znamená, že se tahle
-    integrace tomu nemůže vystavit ani na starší verzi HA, která opravu
-    jádra ještě nemá.
+- `perioder-calendar-card` didn't show up live at all after the
+  v0.9.30 deployment - "Custom element doesn't exist:
+  perioder-calendar-card" even after a full HA restart. Two bugs in
+  `frontend/__init__.py` (`JSModuleRegistration`), both in the logic
+  around automatic Lovelace resource registration:
+  - `hass.data["lovelace"]` is the `LovelaceData` dataclass, whose
+    field is called `resource_mode`, not `mode` - `mode` doesn't exist
+    on it at all. The old code read `getattr(self.lovelace, "mode",
+    None)`, which was always `None`, so it always evaluated as "YAML
+    mode" and the automatic registration was skipped (just a debug
+    log) - even on an instance that's actually in storage mode. Fixed
+    by reading `resource_mode`.
+  - `ResourceStorageCollection.loaded` only becomes `True` after
+    something explicitly calls `resources.async_load()` - typically
+    only once the admin opens Settings > Dashboards > Resources for
+    the first time after a restart. The old code just passively waited
+    on `.loaded` (checked after 5s) without forcing the load itself -
+    on an instance where nobody ever opened the Resources page, the
+    wait never ends and the resource never gets created. Fixed by
+    calling `resources.async_get_info()`, which has its own "lazy-load
+    guard" in HA core (`if not self.loaded: await self.async_load()`)
+    and forces the load immediately.
+  - Incidentally: an unguarded call to
+    `async_items()`/`async_create_item()` on a not-yet-loaded
+    `ResourceStorageCollection` is a real HA core bug elsewhere - it
+    silently overwrote and deleted the entire
+    `.storage/lovelace_resources` (home-assistant/core#165767, fixed in
+    home-assistant/core#165773). Forcing the load via
+    `async_get_info()` before any write means this integration can't
+    be exposed to that even on an older HA version that doesn't yet
+    have the core fix.
 
 ## [0.9.30] - 2026-08-13
 
 ### Added
 
-- `custom:perioder-calendar-card` - vlastní, do repozitáře přibalená
-  Lovelace kalendářová karta (`custom_components/perioder/frontend/`),
-  navržená a odsouhlasená v `CALENDAR-CARD-ADR.md`. Řeší dvě dlouhodobě
-  neřešitelné limitace vestavěné HA `type: calendar` karty:
-  - **Pevné barvy per kategorie** - admin je nastaví přes vizuální editor
-    karty (`getConfigElement()`, barevné pickery s tlačítkem "vrátit
-    doporučenou barvu" u každé) místo automatického přiřazování podle
-    pořadí entit. Barvy jsou jen doporučení, ne vynucené.
-  - **Tabletka už nezmizí za "+n more"** - volitelný `pill_entity` v
-    konfiguraci se vykresluje jako malá ikonka přímo na dni, mimo
-    obvyklé "kolik událostí se vejde do buňky" počítání, na rozdíl od
-    FullCalendar (co pohání vestavěnou kartu), který v přeplněném dni
-    vždy upřednostní víc-denní blok před jednodenní událostí.
-  - Editor navíc řídí, které kategorie/entity karta vůbec nabízí
-    (dvouúrovňové řízení - admin v editoru rozhoduje "co tahle karta
-    smí zobrazit", běhová legenda pod kalendářem jen přepíná viditelnost
-    v rámci toho, co admin povolil - stejný princip, jaký už Perioder má
-    u PMS viditelnosti).
-  - Víc-denní bloky nesou vlastní textový popisek přímo v pruhu (např.
-    "Perioda"), ne jen barvu.
-  - Žádný build krok - čistý JS Web Component (žádný Lit/React/webpack).
-  - Vizuálně inspirováno `calendar-card-pro` (odlišení víkendu, kruhový
-    "dnes" odznak, pastelově tónované pruhy) - viz ADR pro zdroje.
-- `manifest.json`: `dependencies: ["frontend", "http"]` (nutné pro
-  registraci frontend resource) a nová `async_setup()` v `__init__.py`,
-  která kartu registruje jednou za HA instanci (ne per config entry) při
-  startu HA - viz `frontend/__init__.py` (`JSModuleRegistration`).
+- `custom:perioder-calendar-card` - a custom Lovelace calendar card
+  bundled directly into the repository
+  (`custom_components/perioder/frontend/`), designed and approved in
+  `CALENDAR-CARD-ADR.md`. Solves two long-standing, otherwise
+  unsolvable limitations of the built-in HA `type: calendar` card:
+  - **Fixed per-category colors** - the admin sets them via the card's
+    visual editor (`getConfigElement()`, color pickers each with a
+    "restore suggested color" button) instead of automatic assignment
+    by entity order. Colors are only a suggestion, not enforced.
+  - **The pill no longer disappears behind "+n more"** - the optional
+    `pill_entity` in the configuration renders as a small icon directly
+    on the day, outside the usual "how many events fit in the cell"
+    counting, unlike FullCalendar (which powers the built-in card),
+    which on a crowded day always prioritizes a multi-day block over a
+    single-day event.
+  - The editor also controls which categories/entities the card even
+    offers (two-level control - the admin decides in the editor "what
+    this card is allowed to show"; the runtime legend below the
+    calendar just toggles visibility within what the admin allowed -
+    the same principle Perioder already uses for PMS visibility).
+  - Multi-day blocks carry their own text label directly in the bar
+    (e.g. "Perioda"), not just a color.
+  - No build step - plain JS Web Component (no Lit/React/webpack).
+  - Visually inspired by `calendar-card-pro` (weekend distinction, a
+    circular "today" badge, pastel-toned bars) - see the ADR for
+    sources.
+- `manifest.json`: `dependencies: ["frontend", "http"]` (needed to
+  register the frontend resource) and a new `async_setup()` in
+  `__init__.py`, which registers the card once per HA instance (not
+  per config entry) at HA startup - see `frontend/__init__.py`
+  (`JSModuleRegistration`).
 
 ### Changed
 
-- `dashboard_alina.yaml`/`dashboard_test.yaml`: přehledový kalendář teď
-  používá novou kartu místo vestavěné (4 entity + `pill_entity`), bez
-  potřeby `card-mod` na výšku karty.
-- `dashboard_alina_admin.yaml`/`dashboard_test_admin.yaml`: přehledový
-  kalendář (perioda/plodné dny/PMS/pauza/tabletka) na nové kartě;
-  detailní (`cycle_calendar`) a sdílený (`shared_calendar`) kalendář
-  zůstávají na vestavěné kartě - jsou to jednotlivé entity bez
-  barevného konfliktu mezi kategoriemi, který nová karta řeší.
+- `dashboard_alina.yaml`/`dashboard_test.yaml`: the overview calendar
+  now uses the new card instead of the built-in one (4 entities +
+  `pill_entity`), with no need for `card-mod` to set the card's
+  height.
+- `dashboard_alina_admin.yaml`/`dashboard_test_admin.yaml`: the
+  overview calendar (period/fertile days/PMS/pause/pill) on the new
+  card; the detailed (`cycle_calendar`) and shared (`shared_calendar`)
+  calendars stay on the built-in card - they're single entities with
+  no color conflict between categories, which is the problem the new
+  card solves.
 
 ## [0.9.29] - 2026-08-12
 

@@ -1,110 +1,115 @@
-# ADR-1: Vlastní Lovelace kalendářová karta pro Perioder
+# ADR-1: Custom Lovelace Calendar Card for Perioder
 
-**Status:** Accepted, implementováno v0.9.30 (2026-08-13) - viz Akční kroky níže
-**Datum:** 2026-08-12
-**Rozhoduje:** Michael (jediný správce projektu)
-**Navazuje na:** ANALYZA-A-ROADMAP.md sekce 5 ("Vlastní JS Lovelace karta...
-je odložená na v2.0.0 - buď přibalená do stejného repozitáře..., nebo jako
-samostatný HACS 'Plugin'... Rozhodnutí které varianty padne až při plánování
-v2.0.0.") a sekce 8 (verzovací tabulka, řádek v2.0.0).
+**Status:** Accepted, implemented in 0.9.30 (2026-08-13) - see Action Items below
+**Date:** 2026-08-12
+**Decided by:** Michael (sole project maintainer)
+**Follows up on:** ANALYZA-A-ROADMAP.md section 5 ("A custom JS Lovelace card...
+is deferred to v2.0.0 - either bundled into the same repository..., or as a
+standalone HACS 'Plugin'... The decision on which variant to go with will be
+made only during v2.0.0 planning.") and section 8 (versioning table, v2.0.0 row).
 
-## Kontext
+## Context
 
-Perioder dnes staví kalendářový dashboard na vestavěné HA kartě
-`type: calendar` (viz `calendar.py`, šest/sedm entit rozdělených po
-kategoriích - `period_calendar`/`fertile_calendar`/`pms_calendar`/
-`pause_calendar`/`pill_calendar`/`cycle_calendar`/`shared_calendar`). Tahle
-karta má dvě reálné, dlouhodobě neřešitelné bolesti:
+Perioder currently builds its calendar dashboard on the built-in HA card
+`type: calendar` (see `calendar.py`, six/seven entities split by
+category - `period_calendar`/`fertile_calendar`/`pms_calendar`/
+`pause_calendar`/`pill_calendar`/`cycle_calendar`/`shared_calendar`). This
+card has two real, long-term unfixable pain points:
 
-1. **Barvy nejdou pevně přiřadit** - HA je přiřazuje automaticky podle
-   pořadí entit v kartě, ne podle toho, co entita je. Potvrzeno jako
-   otevřený, dlouhodobě neřešený požadavek na straně Home Assistant samotného
-   (`color` dosud není vlastnost `CalendarEntity` - viz
+1. **Colors cannot be pinned** - HA assigns them automatically based on
+   the order of entities in the card, not on what the entity actually is.
+   Confirmed as an open, long-standing unresolved request on the Home
+   Assistant side itself (`color` is still not a property of
+   `CalendarEntity` - see
    [home-assistant/architecture#883](https://github.com/home-assistant/architecture/discussions/883),
    [home-assistant/frontend#11262](https://github.com/home-assistant/frontend/discussions/11262)),
-   ne mezera v Perioder.
-2. **Přeplněný den schová událost za "+n more"** - FullCalendar (co karta
-   pod kapotou používá) řadí v jednom dni delší (víc-denní) události před
-   kratší, takže jednodenní tabletková událost prohrává, i když ji chceme
-   vidět nejvíc. Dnešní obchvat (`calendar_calendar` split na
-   `pill_calendar`, viz v0.9.28 v CHANGELOGu) to řeší jen částečně - funguje
-   jen když si uživatel ručně vypne blokové kalendáře checkboxem.
+   not a gap in Perioder.
+2. **A crowded day hides an event behind "+n more"** - FullCalendar (what
+   the card uses under the hood) sorts longer (multi-day) events ahead of
+   shorter ones within a single day, so a one-day pill event loses out even
+   when it's the one we most want visible. Today's workaround (splitting
+   `calendar_calendar` into `pill_calendar`, see v0.9.28 in the CHANGELOG)
+   only partially solves this - it only works if the user manually turns
+   off the block calendars via a checkbox.
 
-Zkoušeli jsme dvě třetí-stranové HACS karty jako náhradu:
+We tried two third-party HACS cards as a replacement:
 
 - **`calendar-card-pro`** ([alexpfau/calendar-card-pro](https://github.com/alexpfau/calendar-card-pro))
-  - není měsíční mřížka vůbec, je to agenda/seznam nadcházejících dní
-    ("displaying upcoming events" - vlastní popis autora). Špatný fit, jiný
-    vizuální paradigma než chceme.
+  - there's no month grid at all - it's an agenda/list of upcoming days
+    ("displaying upcoming events" - the author's own description). Poor
+    fit, a different visual paradigm than what we want.
 - **`atomic-calendar-revive`** ([totaldebug/atomic-calendar-revive](https://github.com/totaldebug/atomic-calendar-revive))
-  - má měsíční mřížku i pevné barvy per entita, ale **živě vyzkoušeno
-    (2026-08-12) a nespojuje víc-denní události do jednoho pruhu** - přesně
-    to, co u periody/plodného okna/pauzy potřebujeme. Nepoužitelné.
+  - has a month grid and per-entity fixed colors, but **tested live
+    (2026-08-12) and it does not merge multi-day events into a single
+    bar** - exactly what we need for period/fertile window/pause. Unusable.
 
-Obě navíc nesou riziko, které projektu vlastní - Perioder je zdravotní
-nástroj, který v domácnosti používá i netechnický člověk (Alina); závislost
-na tom, jestli je zrovna nainstalovaná/aktuální verze cizí HACS karty, a
-jestli ji autor nerozbije v nějaké budoucí verzi, je zbytečné riziko navíc
-oproti tomu, co si Perioder může garantovat sám.
+Both also carry a risk inherent to the project - Perioder is a health tool
+used at home by a non-technical person too (Alina); depending on whether a
+third-party HACS card happens to be installed/up to date, and whether its
+author breaks it in some future version, is an unnecessary extra risk
+compared to what Perioder can guarantee on its own.
 
-## Rozhodnutí
+## Decision
 
-Postavit vlastní Lovelace kartu `custom:perioder-calendar-card`, **přibalenou
-přímo do repozitáře Perioder integrace** (ne samostatný HACS "Plugin" -
-rozhodnuto v konverzaci 2026-08-12, viz "Zvažované varianty" níže), verzovanou
-společně s `manifest.json`, a **automaticky registrovanou jako Lovelace
-resource** při startu HA - žádný ruční krok "přidat resource" navíc k
-dnešnímu setupu (`dashboard_alina.yaml` apod. se jen přepíšou na novou kartu).
+Build a custom Lovelace card `custom:perioder-calendar-card`, **bundled
+directly into the Perioder integration repository** (not a standalone HACS
+"Plugin" - decided in the 2026-08-12 conversation, see "Considered Options"
+below), versioned together with `manifest.json`, and **automatically
+registered as a Lovelace resource** at HA startup - no manual "add resource"
+step on top of today's setup (`dashboard_alina.yaml` etc. simply get
+rewritten to use the new card).
 
-## Zvažované varianty
+## Considered Options
 
-### A. Hand-rolled měsíční mřížka (doporučeno)
+### A. Hand-rolled month grid (recommended)
 
-Vlastní CSS grid (7 sloupců × N řádků podle měsíce), vlastní datová logika v
-JS (obdoba toho, co `calendar.py`/`cycle_math.py` už dělá v Pythonu - žádná
-nová backendová logika, karta jen čte hotové `calendar.*` entity). Víc-denní
-bloky jako absolutně pozicované pruhy přes rozsah sloupců, rozdělené na
-segmenty po týdnech tam, kde přesahují přes konec řádku (stejná technika,
-jakou interně používá FullCalendar). Tabletková ikona se nikdy nepočítá do
-"kolik událostí se vejde do buňky" - vykresluje se jako malý fixní badge v
-rohu dne, mimo běžný event-stack.
+A custom CSS grid (7 columns × N rows depending on the month), custom data
+logic in JS (analogous to what `calendar.py`/`cycle_math.py` already does
+in Python - no new backend logic, the card only reads the already-computed
+`calendar.*` entities). Multi-day blocks rendered as absolutely positioned
+bars spanning a range of columns, split into weekly segments where they
+cross a row boundary (the same technique FullCalendar uses internally). The
+pill icon is never counted toward "how many events fit in the cell" - it's
+rendered as a small fixed badge in the corner of the day, outside the
+normal event stack.
 
-| Kritérium | Hodnocení |
+| Criterion | Assessment |
 |---|---|
-| Rozsah kódu | Malý - žádné závislosti, žádný build krok (viz níže) |
-| Riziko | Vlastní edge-case pokrytí (přechody měsíců/roků, dnešní datum, mobil) - žádná knihovna to nepohlídá za nás |
-| Kontrola nad chováním | Plná - pevné barvy i "tabletka nikdy nezmizí" jde vynutit přímo |
-| Údržba | Jedna nová oblast (JS) vedle Pythonu, ale malá |
+| Code scope | Small - no dependencies, no build step (see below) |
+| Risk | We own edge-case coverage (month/year transitions, today's date, mobile) - no library covers this for us |
+| Control over behavior | Full - fixed colors and "the pill never disappears" can be enforced directly |
+| Maintenance | One new area (JS) alongside Python, but small |
 
-**Pros:** přesně to, co potřebujeme, nic navíc; žádná cizí závislost; malý
-soubor.
-**Cons:** datumovou/grid logiku, co jinde řeší FullCalendar, píšeme sami.
+**Pros:** exactly what we need, nothing more; no external dependency; small
+file.
+**Cons:** we write the date/grid logic that FullCalendar otherwise handles
+ourselves.
 
-### B. Vendorovat/ořezat FullCalendar
+### B. Vendor/trim down FullCalendar
 
-Použít stejnou knihovnu, co pod kapotou používá vestavěná karta, ale
-zabalenou vlastní obálkou s pevnými barvami.
+Use the same library the built-in card uses under the hood, but wrapped in
+our own layer with fixed colors.
 
-**Pros:** víc-denní spanning "zadarmo", battle-tested.
-**Cons:** ~100-300 kB i ořezaná; pevné barvy a prioritu tabletky bychom
-stejně museli hackovat přes její API/CSS - řeší se tím přesně ten problém,
-kvůli kterému od vestavěné karty odcházíme, jen v jiném balení. **Zamítnuto.**
+**Pros:** multi-day spanning "for free", battle-tested.
+**Cons:** ~100-300 kB even trimmed; we'd still have to hack fixed colors
+and pill priority through its API/CSS - solving exactly the problem we're
+leaving the built-in card for, just in different packaging. **Rejected.**
 
-### C. Obecná, na Perioder nezávislá kalendářová karta (vlastní HACS "Plugin")
+### C. Generic, Perioder-independent calendar card (standalone HACS "Plugin")
 
-Publikovat kartu jako samostatně instalovatelný, obecně použitelný produkt
-(ne vázaný na Perioder entity).
+Publish the card as a separately installable, generally usable product (not
+tied to Perioder entities).
 
-**Pros:** potenciálně užitečné i pro jiné, mohlo by se to hodit i mimo tenhle
-projekt.
-**Cons:** o dost víc práce (obecné API, dokumentace, support surface, dva
-release cykly k synchronizaci) - a hlavně: `Michael`ova vlastní úvaha, proč
-tohle vůbec děláme ("lidé by si instalovali různé kalendáře a to by
-generovalo různé bugy"), platí stejně i o *téhle* kartě, kdyby byla
-samostatná. Staví to přesně na to, čemu se chceme vyhnout. **Zamítnuto,
-rozhodnuto v konverzaci 2026-08-12.**
+**Pros:** potentially useful to others too, could have value beyond this
+project.
+**Cons:** considerably more work (generic API, documentation, support
+surface, two release cycles to keep in sync) - and above all: `Michael`'s
+own reasoning for why we're doing this in the first place ("people would
+install various calendars and that would generate various bugs") applies
+equally to *this* card if it were standalone. This builds exactly what we
+want to avoid. **Rejected, decided in the 2026-08-12 conversation.**
 
-## Návrh konfigurace a chování (rozsah v1 - minimální)
+## Configuration and Behavior Proposal (v1 scope - minimal)
 
 ```yaml
 type: custom:perioder-calendar-card
@@ -121,185 +126,199 @@ entities:
 pill_entity: calendar.alina_pill_calendar
 ```
 
-- `color` je volitelný override - bez něj karta použije vlastní výchozí
-  paletu podle `translation_key` dané Perioder calendar entity (period =
-  červená, fertile = modrá, pause = fialová, pms = oranžová), takže i bez
-  jediného řádku konfigurace to hned vypadá rozumně a smysluplně barevně
-  odlišené.
-- `pill_entity`: volitelný speciální slot. Jeho eventy se **nikdy**
-  nepočítají do limitu "kolik se vejde do buňky dne" - vždy je vidět jako
-  malá 💊 ikonka, bez ohledu na to, kolik dalších bloků ten den má. Tohle
-  přímo řeší dnešní "+n more" problém, u kořene, ne obchvatem přes
-  samostatnou entitu + ruční checkbox (jako dnes).
-- Klik na den rozbalí detail (seznam událostí toho dne) - stejná
-  interakce, jakou má dnešní vestavěná karta.
-- Read-only, žádné psaní/přesouvání událostí - Perioder eventy se stejně
-  nedají ručně editovat, jen logovat přes existující services/entity.
-- **V1 má jen měsíční view** (`dayGridMonth` ekvivalent) - žádný týden/den
-  view. Rozšíření je možné později, ale není součástí v1.
-- **Víc-denní pruhy nesou vlastní popisek** (např. "Perioda", "Plodné dny")
-  přímo v pruhu, ne jen barvou přes legendu - textem, useknutým elipsou,
-  pokud se úsek nevejde (rozhodnuto v konverzaci 2026-08-13). Barva pruhu
-  je z dané kategorie, text tmavým odstínem stejné barevné řady (kontrast,
-  stejná konvence jako zbytek Perioder UI).
+- `color` is an optional override - without it, the card uses its own
+  default palette based on the `translation_key` of the given Perioder
+  calendar entity (period = red, fertile = blue, pause = purple, pms =
+  orange), so it looks reasonable and meaningfully color-differentiated
+  even without a single line of configuration.
+- `pill_entity`: an optional special slot. Its events are **never** counted
+  toward the "how many fit in the day cell" limit - it's always shown as a
+  small 💊 icon, regardless of how many other blocks that day has. This
+  directly fixes today's "+n more" problem at the root, instead of a
+  workaround via a separate entity plus a manual checkbox (as today).
+- Clicking a day expands the detail (a list of that day's events) - the
+  same interaction the current built-in card has.
+- Read-only, no writing/moving events - Perioder events can't be manually
+  edited anyway, only logged through the existing services/entities.
+- **V1 has only a month view** (`dayGridMonth` equivalent) - no week/day
+  view. Extending this is possible later, but it's not part of v1.
+- **Multi-day bars carry their own label** (e.g. "Perioda", "Plodné dny")
+  directly on the bar, not just conveyed via color through a legend -
+  as text, truncated with an ellipsis if the span doesn't fit (decided in
+  the 2026-08-13 conversation). The bar's color comes from the given
+  category, the text uses a darker shade of the same color family
+  (contrast, same convention as the rest of the Perioder UI).
 
-### Konfigurační editor karty - dvouúrovňové řízení viditelnosti (rozhodnuto 2026-08-13)
+### Card configuration editor - two-tier visibility control (decided 2026-08-13)
 
-Na rozdíl od původního plánu ("žádný editor karty v GUI, jen YAML") karta
-**musí mít vizuální editor** (`getConfigElement()`, standardní HA custom-card
-vzor) - ne proto, že by to bylo hezčí, ale kvůli oddělení dvou různých
-oprávnění, která se dnes v projektu jasně rozlišují (viz sekce 2.5 - admin
-rozhoduje, kdo co vidí, ne koncový uživatel karty):
+Contrary to the original plan ("no GUI card editor, just YAML"), the card
+**must have a visual editor** (`getConfigElement()`, the standard HA
+custom-card pattern) - not because it's prettier, but to separate two
+distinct permissions that are already clearly distinguished in the project
+today (see section 2.5 - the admin decides who sees what, not the card's
+end user):
 
-1. **Editor karty (admin, konfigurační čas)** - checkboxy "které kategorie
-   tahle konkrétní karta na tomhle konkrétním dashboardu vůbec smí
-   nabízet" (`period`/`fertile`/`pms`/`pause`, plus **tabletka jako
-   rovnocenná pátá volba** - ne vždy zapnutá napevno, rozhodnuto v
-   konverzaci 2026-08-13: ne každý divák dashboardu chce vidět, jestli byla
-   tabletka vzata). Totéž, co dnes admin řeší ručně přes `entities:` seznam
-   v YAML (a co odlišuje `dashboard_alina.yaml` bez PMS od
-   `dashboard_alina_admin.yaml` s PMS) - editor to jen dělá jako checkboxy
-   místo ručního psaní entity ID.
-2. **Legenda karty (kdokoli s přístupem k dashboardu, běhový čas)** -
-   checkboxy pro dočasné show/hide při prohlížení, ale **jen mezi
-   kategoriemi, které admin v kroku 1 povolil**. Kategorie, kterou admin
-   nepovolil, se v legendě vůbec neobjeví - není to jen defaultně
-   odškrtnuté, je to skutečně nedostupné, stejný princip jako u
-   `binary_sensor.pms_active` a `pms_calendar` dnes (viz sekce 2.2).
+1. **Card editor (admin, configuration time)** - checkboxes for "which
+   categories this particular card on this particular dashboard is even
+   allowed to offer" (`period`/`fertile`/`pms`/`pause`, plus **the pill as
+   an equal fifth option** - not always hardcoded on, decided in the
+   2026-08-13 conversation: not every dashboard viewer wants to see whether
+   the pill was taken). The same thing the admin handles manually today via
+   the `entities:` list in YAML (and what distinguishes
+   `dashboard_alina.yaml` without PMS from `dashboard_alina_admin.yaml`
+   with PMS) - the editor just does it as checkboxes instead of manually
+   typing entity IDs.
+2. **Card legend (anyone with dashboard access, runtime)** - checkboxes
+   for temporary show/hide while viewing, but **only among the categories
+   the admin enabled in step 1**. A category the admin didn't enable
+   doesn't appear in the legend at all - it's not merely unchecked by
+   default, it's genuinely unavailable, the same principle as
+   `binary_sensor.pms_active` and `pms_calendar` today (see section 2.2).
 
-Prakticky: `getConfigElement()` uloží admin výběr do `entities:` pole
-karty (přesně to, co karta dnes stejně čte) - není potřeba žádný nový
-datový model, jen GUI nad existujícím.
+In practice: `getConfigElement()` saves the admin's selection into the
+card's `entities:` field (exactly what the card already reads today) - no
+new data model is needed, just a GUI on top of the existing one.
 
-**Barvy jsou doporučení, ne napevno dané (rozhodnuto 2026-08-13):** editor
-u každé povolené kategorie nabídne barevný picker předvyplněný naší
-výchozí paletou (`period`=červená, `fertile`=modrá, `pms`=oranžová,
-`pause`=fialová) plus tlačítko "vrátit doporučenou barvu". Admin může
-kteroukoli přebít, `entities:` pak nese `color:` jen tam, kde se admin od
-doporučení odchýlil (výchozí paleta zůstává fallback, stejný princip jako
-dnešní `translation_key`-based default z dřívějšího návrhu). Tabletka
-zůstává bez vlastní barvy (je to ikona, ne pruh) - jen on/off v editoru.
+**Colors are a suggestion, not fixed (decided 2026-08-13):** for each
+enabled category, the editor offers a color picker pre-filled with our
+default palette (`period`=red, `fertile`=blue, `pms`=orange,
+`pause`=purple) plus a "restore suggested color" button. The admin can
+override any of them; `entities:` then carries `color:` only where the
+admin deviated from the suggestion (the default palette remains the
+fallback, the same principle as the earlier `translation_key`-based default
+from the earlier proposal). The pill retains no color of its own (it's an
+icon, not a bar) - just on/off in the editor.
 
-### Vizuální inspirace z jiných HACS kalendářových karet
+### Visual inspiration from other HACS calendar cards
 
-Ověřeno 2026-08-13 proti `calendar-card-pro` (nejrozšířenější alternativa,
-viz README) a obecným trendům "hezkých" HA dashboardů (mushroom/bubble
-card styl, co Michael používá i jinde). Konkrétní prvky, které stojí za
-převzetí do vlastní karty:
+Verified 2026-08-13 against `calendar-card-pro` (the most widespread
+alternative, see README) and general trends in "nice-looking" HA
+dashboards (the mushroom/bubble card style Michael also uses elsewhere).
+Specific elements worth adopting into our own card:
 
-- **Odlišení víkendu** (`weekend_day_color` u calendar-card-pro) - lehčí
-  odstín pro sobotu/neděli v hlavičce i čísle dne, ne nutně funkčně
-  důležité, ale pomáhá rychlé orientaci v mřížce.
-- **Kruhový "dnes" odznak** kolem čísla dne (ne velký obdélníkový
-  highlight přes celou buňku) - čistší, méně rušivé.
-- **Pastelově tónované pruhy** (tint barvy na pozadí + plná barva jako
-  levý accent border + ikona) místo plných sytých pruhů - měkčí, blíž
-  stylu, který Michael používá jinde (bubble card), a zároveň řeší kontrast
-  textu při libovolné admin-zvolené barvě bez nutnosti počítat
-  luminanci/kontrast ručně.
-- **Legenda jako zaoblené "chips"** s tónovaným pozadím místo prostého
-  textu + checkboxu - konzistentní s pruhy, čitelnější skupina rychle
-  přepínatelných filtrů.
-- **Týdenní číslo jako "pill" odznak** (`week_number_*` u
-  calendar-card-pro) - zvažováno, ale vynecháno z v1 (nepřidává hodnotu
-  pro tenhle konkrétní účel, jen vizuální šum navíc).
+- **Weekend distinction** (`weekend_day_color` in calendar-card-pro) - a
+  lighter shade for Saturday/Sunday in both the header and the day number,
+  not necessarily functionally important, but helps quick orientation in
+  the grid.
+- **Circular "today" badge** around the day number (not a large
+  rectangular highlight across the whole cell) - cleaner, less
+  distracting.
+- **Pastel-toned bars** (a tint of the color as background + the full
+  color as a left accent border + icon) instead of solid saturated bars -
+  softer, closer to the style Michael uses elsewhere (bubble card), and at
+  the same time solves text contrast for any admin-chosen color without
+  having to compute luminance/contrast manually.
+- **Legend as rounded "chips"** with a tinted background instead of plain
+  text + checkbox - consistent with the bars, a more readable group of
+  quickly toggleable filters.
+- **Week number as a "pill" badge** (`week_number_*` in
+  calendar-card-pro) - considered, but left out of v1 (doesn't add value
+  for this particular purpose, just extra visual noise).
 
-Zdroj: [alexpfau/calendar-card-pro README](https://github.com/alexpfau/calendar-card-pro/blob/main/README.md)
-(sekce Visual Styling & Colors, Weekend Day Styling, Today's Date Styling).
+Source: [alexpfau/calendar-card-pro README](https://github.com/alexpfau/calendar-card-pro/blob/main/README.md)
+(Visual Styling & Colors, Weekend Day Styling, Today's Date Styling sections).
 
-## Technická implementace - registrace jako frontend resource
+## Technical Implementation - Registering as a Frontend Resource
 
-Ověřeno (2026-08-12) proti aktuálnímu (post-2024.7) HA API, ne proti
-zastaralému `hass.http.register_static_path`:
+Verified (2026-08-12) against the current (post-2024.7) HA API, not against
+the deprecated `hass.http.register_static_path`:
 
-1. `manifest.json` musí deklarovat `"dependencies": ["frontend", "http"]`
-   (dnes Perioder nemá ani jednu - bez nich registrace tiše selže).
-2. Statická cesta se registruje přes
+1. `manifest.json` must declare `"dependencies": ["frontend", "http"]`
+   (Perioder currently has neither - without them, registration fails
+   silently).
+2. The static path is registered via
    `await hass.http.async_register_static_paths([StaticPathConfig(url_base, path, False)])`
-   (asynchronní varianta - synchronní `register_static_path` je zastaralá).
-3. Samotný Lovelace resource záznam (`lovelace.resources.async_create_item(...)`)
-   jde zaregistrovat **jen v storage-mode Lovelace** (výchozí režim, jaký
-   Michael používá - "Přidat ovládací panel > Nový panel od začátku" je
-   storage mode i když se jeden konkrétní view pak edituje přes "Upravit v
-   YAML"). V čistém YAML-mode Lovelace by uživatel resource musel přidat
-   ručně jednou do `ui-lovelace.yaml` - netýká se ale dnešního Perioder
-   setupu.
-4. **Registrace musí proběhnout v `async_setup()`, ne `async_setup_entry()`**
-   - Perioder dnes `async_setup()` vůbec nemá (jen `async_setup_entry`
-   per config entry) - potřeba přidat, ať se JS zaregistruje jednou za
-   integraci, ne znovu za každého vlastníka cyklu.
-5. Verze resource URL (`?v={manifest_version}`) se bumpuje spolu s
-   `manifest.json` verzí (stejný release proces jako dnes - sekce 8) - řeší
-   běžné prohlížečové/companion-app cachování staré verze JS souboru po
-   aktualizaci.
-6. **Souborová struktura:**
+   (the async variant - the synchronous `register_static_path` is
+   deprecated).
+3. The actual Lovelace resource entry (`lovelace.resources.async_create_item(...)`)
+   can only be registered **in storage-mode Lovelace** (the default mode,
+   the one Michael uses - "Add Dashboard > New dashboard from scratch" is
+   storage mode even if one particular view is then edited via "Edit in
+   YAML"). In pure YAML-mode Lovelace, the user would have to add the
+   resource manually once to `ui-lovelace.yaml` - doesn't affect today's
+   Perioder setup though.
+4. **Registration must happen in `async_setup()`, not `async_setup_entry()`**
+   - Perioder currently doesn't have `async_setup()` at all (only
+   `async_setup_entry` per config entry) - it needs to be added, so the JS
+   gets registered once per integration, not again for every cycle owner.
+5. The resource URL version (`?v={manifest_version}`) is bumped together
+   with the `manifest.json` version (the same release process as today -
+   section 8) - this handles the usual browser/companion-app caching of an
+   old version of the JS file after an update.
+6. **File structure:**
    ```
    custom_components/perioder/
      frontend/
-       __init__.py          # JSModuleRegistration (viz krok 1-5)
+       __init__.py          # JSModuleRegistration (see steps 1-5)
        perioder-calendar-card.js
    ```
-7. **Bez build kroku** - žádný webpack/Node/TypeScript, čistý JS modul
-   (LitElement přes CDN import nebo vanilla Web Component - upřesnit při
-   implementaci). Konzistentní s tím, že zbytek repozitáře je jen Python +
-   YAML, žádná JS toolchain k údržbě.
+7. **No build step** - no webpack/Node/TypeScript, a plain JS module
+   (LitElement via CDN import or a vanilla Web Component - to be settled
+   during implementation). Consistent with the rest of the repository
+   being just Python + YAML, no JS toolchain to maintain.
 
-Zdroje ověření: [KipK - Developer guide: Lovelace custom card embedded in
+Verification sources: [KipK - Developer guide: Lovelace custom card embedded in
 integration](https://gist.github.com/KipK/3cf706ac89573432803aaa2f5ca40492/)
-(aktualizováno 2026-02-10, popisuje přesně tenhle vzor včetně
+(updated 2026-02-10, describes exactly this pattern including
 `StaticPathConfig`/`async_register_static_paths`).
 
-## Data flow
+## Data Flow
 
-Karta čte data přes stejné WebSocket API, jaké používá vestavěná HA karta -
-`hass.callWS({type: "calendar/event/list", entity_id, start, end})` - nad
-běžnými `calendar.*` entitami. **Žádná nová backendová logika v
-`calendar.py` není pro v1 potřeba** - je to čistě frontendová karta nad tím,
-co integrace už dnes poskytuje.
+The card reads data through the same WebSocket API the built-in HA card
+uses - `hass.callWS({type: "calendar/event/list", entity_id, start, end})` -
+against the regular `calendar.*` entities. **No new backend logic in
+`calendar.py` is needed for v1** - it's purely a frontend card layered on
+top of what the integration already provides today.
 
-## Důsledky
+## Consequences
 
-- **Zjednoduší se:** žádná závislost na cizí HACS kartě a její údržbě;
-  jedna verze karty, verzovaná a vydávaná spolu s integrací; barvy a
-  viditelnost tabletky jde vynutit napevno, ne obchvatem.
-- **Přibude práce:** JS/frontend je nová oblast údržby vedle Pythonu - repo
-  dnes nemá žádné JS test tooling (`tests/` je čistě pytest, viz
-  `tests/conftest.py`), takže změny v kartě se budou muset ověřovat ručně
-  na živé instanci, stejné omezení, jaké má dnes i notifikační engine.
-- **K revizi při implementaci:** `hacs.json`/`hassfest` validace s novou
-  `frontend`/`http` závislostí a se statickým JS souborem v repozitáři -
-  potvrdit, že HACS kategorie zůstává "Integration" a nevyžaduje zvláštní
-  zacházení jen kvůli přibalenému JS.
+- **Simplified:** no dependency on a third-party HACS card and its
+  upkeep; a single card version, versioned and released together with the
+  integration; colors and pill visibility can be enforced firmly, not
+  worked around.
+- **Added work:** JS/frontend is a new maintenance area alongside Python -
+  the repo currently has no JS test tooling (`tests/` is pure pytest, see
+  `tests/conftest.py`), so changes to the card will have to be verified
+  manually on a live instance, the same limitation the notification engine
+  has today.
+- **To revisit during implementation:** `hacs.json`/`hassfest` validation
+  with the new `frontend`/`http` dependency and a static JS file in the
+  repository - confirm that the HACS category remains "Integration" and
+  doesn't require special handling just because of the bundled JS.
 
-## Akční kroky
+## Action Items
 
-1. [x] Odsouhlasit/upravit návrh výše (barvy, `pill_entity` chování,
-   rozsah v1) - odsouhlaseno 2026-08-13 po několika kolech úprav (editor s
-   admin-řízenou dostupností, volitelné barvy, popisky v pruzích).
+1. [x] Approve/adjust the proposal above (colors, `pill_entity` behavior,
+   v1 scope) - approved 2026-08-13 after several rounds of adjustments
+   (editor with admin-controlled availability, optional colors, labels on
+   the bars).
 2. [x] `manifest.json`: `dependencies: ["frontend", "http"]`
 3. [x] `custom_components/perioder/frontend/__init__.py` -
-   `JSModuleRegistration` (statická cesta + Lovelace resource, viz výše)
+   `JSModuleRegistration` (static path + Lovelace resource, see above)
 4. [x] `custom_components/perioder/frontend/perioder-calendar-card.js` -
-   samotná karta (měsíční grid s navigací, popsané barevné pruhy,
-   pill-badge, klik-detail) + `PerioderCalendarCardEditor`
-   (`getConfigElement()`) - editor generický nad libovolnou `calendar.*`
-   entitou (ne natvrdo vázaný na Perioder), takže funguje i kdyby admin
-   chtěl přimíchat jiný kalendář.
-5. [x] `async_setup()` v `__init__.py` - registruje frontend jednou za HA
-   instanci, na `EVENT_HOMEASSISTANT_STARTED` (nebo hned, pokud HA už běží)
-6. [ ] `hassfest`/HACS validace přes GitHub Actions - **nelze ověřit v
-   tomhle prostředí** (žádná běžící HA instance ani `hassfest` nástroj
-   dostupný zde) - ověří se až v CI po pushnutí/na živé instanci.
-7. [x] Přepsáno `dashboard_alina.yaml`/`dashboard_alina_admin.yaml` +
-   `dashboard_test.yaml`/`dashboard_test_admin.yaml` na novou kartu -
-   `cycle_calendar`/`shared_calendar` zůstaly na vestavěné kartě (viz
-   "Důsledky" - jsou to jednotlivé entity, nová karta jim nic nepřidává).
-8. [x] `CHANGELOG.md` (v0.9.30), `manifest.json` verze, tenhle dokument
-   (Status -> Accepted) odškrtnuto.
+   the card itself (month grid with navigation, labeled color bars,
+   pill badge, click-to-detail) + `PerioderCalendarCardEditor`
+   (`getConfigElement()`) - the editor is generic over any `calendar.*`
+   entity (not hardcoded to Perioder), so it also works if the admin wants
+   to mix in a different calendar.
+5. [x] `async_setup()` in `__init__.py` - registers the frontend once per
+   HA instance, on `EVENT_HOMEASSISTANT_STARTED` (or immediately, if HA is
+   already running)
+6. [ ] `hassfest`/HACS validation via GitHub Actions - **cannot be
+   verified in this environment** (no running HA instance nor `hassfest`
+   tool available here) - will be verified only in CI after pushing/on a
+   live instance.
+7. [x] Rewrote `dashboard_alina.yaml`/`dashboard_alina_admin.yaml` +
+   `dashboard_test.yaml`/`dashboard_test_admin.yaml` to use the new card -
+   `cycle_calendar`/`shared_calendar` remained on the built-in card (see
+   "Consequences" - these are individual entities, the new card adds
+   nothing for them).
+8. [x] `CHANGELOG.md` (v0.9.30), `manifest.json` version, this document
+   (Status -> Accepted) checked off.
 
-**Neověřeno živě (nutná ruční kontrola na skutečné HA instanci, viz
-"Důsledky" výše):** vzhled karty v prohlížeči/Companion app, skutečná
-registrace Lovelace resource po restartu, chování editoru v Lovelace UI.
-JS prošel jen `node --check` (syntaxe) a samostatnými assercemi na
-datumovou matematiku (týdny/měsíční mřížka, exclusive-end převod) - žádná
-skutečná DOM/HA prostředí tady k dispozici.
+**Not verified live (manual check on a real HA instance required, see
+"Consequences" above):** the card's appearance in the browser/Companion
+app, actual Lovelace resource registration after a restart, editor
+behavior in the Lovelace UI. The JS only passed `node --check` (syntax)
+and standalone assertions on the date math (weeks/month grid,
+exclusive-end conversion) - no real DOM/HA environment available here.
