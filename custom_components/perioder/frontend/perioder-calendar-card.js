@@ -22,6 +22,14 @@
  * never had anything to draw. Fixed by switching to the REST endpoint
  * above, which is what HA's own calendar card/dialog actually use.
  *
+ * v0.9.35 (2026-08-19): two label fixes from live use. (1) A block that
+ * spans a week boundary now repeats its label on every week it covers -
+ * before, only the starting week was labeled and the continuation rows were
+ * anonymous colored stripes. (2) Labels are auto-shortened by stripping the
+ * prefix all calendars on the card share ("Alina Calendar - period" ->
+ * "period"), because that prefix is identical for every entity here and only
+ * eats space; `name:` per entity (and `pill_name:`) overrides it.
+ *
  * Two problems this exists to solve (see calendar.py's own docstring +
  * CALENDAR-CARD-ADR.md for the full history):
  *   1. The built-in card can't pin a fixed color per calendar entity -
@@ -43,7 +51,9 @@
  *     - entity: calendar.alina_period_calendar
  *       color: "#E24B4A"      # optional, admin can override via the editor
  *       icon: mdi:water        # optional, guessed from entity_id otherwise
+ *       name: Menstruace       # optional, overrides the auto-shortened label
  *   pill_entity: calendar.alina_pill_calendar   # optional
+ *   pill_name: Tabletky                         # optional
  *
  * All-day event date semantics follow the same convention calendar.py
  * already uses throughout (end date is EXCLUSIVE - "start <= day < end"),
@@ -110,6 +120,51 @@ function buildWeeks(year, monthIndex) {
 
 function hexTint(hex) {
   return hex + '26';
+}
+
+function esc(text) {
+  return String(text === undefined || text === null ? '' : text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// v0.9.35: every calendar entity shown on one card practically always
+// shares a prefix from the device/config-entry it belongs to ("Alina
+// Calendar - period", "Alina Calendar - fertile window", ...). That prefix
+// is identical for everything on the card, so it carries zero information
+// here while eating a lot of horizontal space - and horizontal space is
+// exactly what a month grid has least of (an event bar is one seventh of
+// the card wide). So: strip the longest prefix ALL displayed names share.
+// Only cut back to a separator, never mid-word, so a pair like
+// "Cycle A"/"Cycle B" keeps its full name instead of collapsing to "A"/"B".
+const NAME_SEPARATORS = [' - ', ' – ', ' — ', ': ', ' | ', ' / ', ' · '];
+
+function sharedNamePrefix(names) {
+  const list = names.filter((n) => typeof n === 'string' && n.length > 0);
+  if (list.length < 2) return '';
+  let prefix = list[0];
+  for (let i = 1; i < list.length; i++) {
+    const other = list[i];
+    let j = 0;
+    while (j < prefix.length && j < other.length && prefix[j] === other[j]) j++;
+    prefix = prefix.slice(0, j);
+    if (!prefix) return '';
+  }
+  let cut = 0;
+  NAME_SEPARATORS.forEach((sep) => {
+    const idx = prefix.lastIndexOf(sep);
+    if (idx >= 0) cut = Math.max(cut, idx + sep.length);
+  });
+  return prefix.slice(0, cut);
+}
+
+function stripPrefix(name, prefix) {
+  if (!prefix || !name) return name;
+  if (name.length <= prefix.length) return name;
+  return name.slice(0, prefix.length) === prefix ? name.slice(prefix.length) : name;
 }
 
 const MONTH_NAMES = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
@@ -222,6 +277,29 @@ class PerioderCalendarCard extends HTMLElement {
     return (state && state.attributes.friendly_name) || entityId;
   }
 
+  /**
+   * v0.9.35: entity_id -> the short label actually drawn on chips and bars.
+   * Auto-shortened by dropping the prefix all entities on this card share
+   * (see `sharedNamePrefix`), unless the config sets an explicit `name` for
+   * that entity (or `pill_name` for the pill entity), which always wins.
+   */
+  _labelMap() {
+    const cfg = this._config || {};
+    const entries = cfg.entities || [];
+    const ids = entries.map((e) => e.entity);
+    if (cfg.pill_entity) ids.push(cfg.pill_entity);
+    const prefix = sharedNamePrefix(ids.map((id) => this._entityName(id)));
+    const map = {};
+    ids.forEach((id) => {
+      map[id] = stripPrefix(this._entityName(id), prefix);
+    });
+    entries.forEach((entCfg) => {
+      if (entCfg.name) map[entCfg.entity] = entCfg.name;
+    });
+    if (cfg.pill_entity && cfg.pill_name) map[cfg.pill_entity] = cfg.pill_name;
+    return map;
+  }
+
   _dayHasEvent(entityId, dateStr) {
     const events = this._events[entityId] || [];
     return events.some((ev) => {
@@ -269,6 +347,7 @@ class PerioderCalendarCard extends HTMLElement {
 
   _renderDetail(dateStr) {
     const rows = [];
+    const labels = this._labelMap();
     (this._config.entities || [])
       .filter((entCfg) => !this._hiddenEntities.has(entCfg.entity))
       .forEach((entCfg) => {
@@ -280,7 +359,7 @@ class PerioderCalendarCard extends HTMLElement {
             rows.push({
               color: entCfg.color || DEFAULT_COLORS[0],
               icon: entCfg.icon || guessIcon(entCfg.entity),
-              text: ev.summary || this._entityName(entCfg.entity),
+              text: ev.summary || labels[entCfg.entity] || this._entityName(entCfg.entity),
             });
           }
         });
@@ -306,11 +385,11 @@ class PerioderCalendarCard extends HTMLElement {
             .map(
               (r) =>
                 '<div class="detail-row"><ha-icon icon="' +
-                r.icon +
+                esc(r.icon) +
                 '" style="color:' +
-                r.color +
+                esc(r.color) +
                 ';"></ha-icon><span>' +
-                r.text +
+                esc(r.text) +
                 '</span></div>'
             )
             .join('');
@@ -331,6 +410,7 @@ class PerioderCalendarCard extends HTMLElement {
     const catEntities = cfg.entities || [];
     const pillEntity = cfg.pill_entity;
     const hidden = this._hiddenEntities;
+    const labels = this._labelMap();
     // v0.9.33: only entities the legend hasn't toggled off actually get a
     // lane row - keeps bars packed with no gap left behind by a hidden
     // category, same "hide via legend" UX as the built-in calendar card's
@@ -388,7 +468,9 @@ class PerioderCalendarCard extends HTMLElement {
         const color = entCfg.color || DEFAULT_COLORS[fullIdx % DEFAULT_COLORS.length];
         const icon = entCfg.icon || guessIcon(entCfg.entity);
         this._segmentsForWeek(entCfg.entity, week).forEach((seg) => {
-          weekSegments.push(Object.assign({ color, icon, name: this._entityName(entCfg.entity) }, seg));
+          weekSegments.push(
+            Object.assign({ color, icon, name: labels[entCfg.entity] || this._entityName(entCfg.entity) }, seg)
+          );
         });
       });
       weekSegments.sort((a, b) => a.startCol - b.startCol || b.endCol - b.startCol - (a.endCol - a.startCol));
@@ -411,8 +493,19 @@ class PerioderCalendarCard extends HTMLElement {
         if (seg.isStart && seg.isEnd) radius = '8px';
         else if (seg.isStart) radius = '8px 0 0 8px';
         else if (seg.isEnd) radius = '0 8px 8px 0';
+        // v0.9.35: a block running across a week boundary used to render its
+        // icon + name ONLY on the week where it starts (`seg.isStart`), so
+        // every following week showed an unlabeled colored stripe - the user
+        // had to look up to the previous row to find out what it even was.
+        // Now every segment is labeled, the way Google Calendar's month view
+        // repeats the title on each week a multi-day event spans. A
+        // continued segment is marked instead by a chevron-left in place of
+        // the category icon, plus no colored left cap (the cap now means
+        // "this is where the block actually starts") and a square left edge.
         lanesHtml +=
-          '<div class="bar" style="grid-column:' +
+          '<div class="bar' +
+          (seg.isStart ? '' : ' cont') +
+          '" style="grid-column:' +
           (seg.startCol + 1) +
           ' / ' +
           (seg.endCol + 2) +
@@ -421,14 +514,16 @@ class PerioderCalendarCard extends HTMLElement {
           '; background:' +
           hexTint(seg.color) +
           '; border-left-color:' +
-          seg.color +
+          (seg.isStart ? esc(seg.color) : 'transparent') +
           '; border-radius:' +
           radius +
-          ';">' +
-          (seg.isStart
-            ? '<ha-icon icon="' + seg.icon + '" style="color:' + seg.color + ';"></ha-icon><span>' + seg.name + '</span>'
-            : '') +
-          '</div>';
+          ';"><ha-icon icon="' +
+          (seg.isStart ? esc(seg.icon) : 'mdi:chevron-left') +
+          '" style="color:' +
+          esc(seg.color) +
+          ';"></ha-icon><span>' +
+          esc(seg.name) +
+          '</span></div>';
       });
 
       gridHtml +=
@@ -459,12 +554,14 @@ class PerioderCalendarCard extends HTMLElement {
             hexTint(color) +
             ';" aria-pressed="' +
             (!isOff) +
+            '" title="' +
+            esc(this._entityName(entCfg.entity)) +
             '"><ha-icon icon="' +
-            icon +
+            esc(icon) +
             '" style="color:' +
-            color +
+            esc(color) +
             ';"></ha-icon>' +
-            this._entityName(entCfg.entity) +
+            esc(labels[entCfg.entity] || this._entityName(entCfg.entity)) +
             '</button>'
           );
         })
@@ -476,8 +573,10 @@ class PerioderCalendarCard extends HTMLElement {
           pillEntity +
           '" aria-pressed="' +
           !hidden.has(pillEntity) +
+          '" title="' +
+          esc(this._entityName(pillEntity)) +
           '"><ha-icon icon="mdi:pill"></ha-icon>' +
-          this._entityName(pillEntity) +
+          esc(labels[pillEntity] || this._entityName(pillEntity)) +
           '</button>'
         : '');
 
@@ -512,6 +611,13 @@ class PerioderCalendarCard extends HTMLElement {
       '.pill-badge{position:absolute;top:4px;right:4px;color:var(--primary-color);}' +
       '.bar{display:flex;align-items:center;gap:4px;height:18px;font-size:10px;font-weight:500;padding-left:5px;border-left:3px solid;overflow:hidden;white-space:nowrap;color:var(--primary-text-color);pointer-events:none;}' +
       '.bar span{overflow:hidden;text-overflow:ellipsis;}' +
+      // A continued segment often gets only one column of width (a block
+      // ending on a Monday), so it is exactly where label space is scarcest:
+      // no colored left cap, smaller chevron and tighter gap buy back ~10px
+      // of text before the ellipsis kicks in.
+      '.bar.cont{border-left-width:0;padding-left:2px;gap:2px;}' +
+      '.bar.cont ha-icon{--mdc-icon-size:12px;opacity:0.8;}' +
+      '.bar.cont span{opacity:0.9;}' +
       '.detail{margin:2px 2px 6px;padding:8px 10px;border-radius:8px;background:var(--secondary-background-color);font-size:13px;}' +
       '.detail-date{font-weight:500;color:var(--primary-text-color);margin-bottom:4px;}' +
       '.detail-row{display:flex;align-items:center;gap:6px;padding:2px 0;color:var(--primary-text-color);}' +
@@ -521,7 +627,7 @@ class PerioderCalendarCard extends HTMLElement {
       '<ha-card>' +
       '<div class="header">' +
       '<span class="title">' +
-      (cfg.title || '') +
+      esc(cfg.title || '') +
       '</span>' +
       '<div class="nav">' +
       '<button aria-label="Předchozí měsíc" data-nav="-1"><ha-icon icon="mdi:chevron-left"></ha-icon></button>' +
@@ -617,6 +723,21 @@ class PerioderCalendarCardEditor extends HTMLElement {
     this._updateConfig(Object.assign({}, this._config, { entities }));
   }
 
+  // v0.9.35: optional per-entity display label. Empty input = fall back to
+  // the card's automatic "strip the shared prefix" shortening, so the
+  // placeholder shows exactly what the card would draw on its own.
+  _setName(entityId, name) {
+    const trimmed = (name || '').trim();
+    const entities = ((this._config && this._config.entities) || []).map((e) => {
+      if (e.entity !== entityId) return e;
+      const next = Object.assign({}, e);
+      if (trimmed) next.name = trimmed;
+      else delete next.name;
+      return next;
+    });
+    this._updateConfig(Object.assign({}, this._config, { entities }));
+  }
+
   _setPill(entityId, checked) {
     const currentPill = this._config && this._config.pill_entity;
     const nextPill = checked ? entityId : currentPill === entityId ? undefined : currentPill;
@@ -633,6 +754,14 @@ class PerioderCalendarCardEditor extends HTMLElement {
     if (!this._hass) return;
     const entities = this._calendarEntities();
     const cfg = this._config || {};
+    const friendly = (entityId) =>
+      (this._hass.states[entityId] && this._hass.states[entityId].attributes.friendly_name) || entityId;
+    // Same shortening the card itself applies, computed over the entities
+    // actually on the card - shown as each row's placeholder so the admin
+    // can see what the automatic label will be before overriding it.
+    const shownIds = ((cfg.entities || []).map((e) => e.entity) || []).slice();
+    if (cfg.pill_entity) shownIds.push(cfg.pill_entity);
+    const prefix = sharedNamePrefix(shownIds.map(friendly));
     const rowsHtml = entities
       .map((entityId, i) => {
         const entry = this._entryFor(entityId);
@@ -640,25 +769,34 @@ class PerioderCalendarCardEditor extends HTMLElement {
         const isPill = cfg.pill_entity === entityId;
         const defaultColor = DEFAULT_COLORS[i % DEFAULT_COLORS.length];
         const color = (entry && entry.color) || defaultColor;
-        const name = (this._hass.states[entityId] && this._hass.states[entityId].attributes.friendly_name) || entityId;
+        const name = friendly(entityId);
         return (
           '<div class="row" data-entity="' +
-          entityId +
+          esc(entityId) +
           '" data-default-color="' +
-          defaultColor +
+          esc(defaultColor) +
           '">' +
           '<input type="checkbox" class="incl" ' +
           (included ? 'checked' : '') +
           '>' +
           '<input type="color" class="color" value="' +
-          color +
+          esc(color) +
           '" ' +
           (included ? '' : 'disabled') +
           '>' +
           '<button class="reset" type="button" title="Vrátit doporučenou barvu" aria-label="Vrátit doporučenou barvu">↺</button>' +
-          '<span class="name">' +
-          name +
+          '<span class="name" title="' +
+          esc(name) +
+          '">' +
+          esc(name) +
           '</span>' +
+          '<input type="text" class="label" value="' +
+          esc((entry && entry.name) || '') +
+          '" placeholder="' +
+          esc(stripPrefix(name, prefix)) +
+          '" title="Vlastní popisek na kartě (prázdné = automaticky zkrácený název)" ' +
+          (included ? '' : 'disabled') +
+          '>' +
           '<label class="pill-toggle"><input type="checkbox" class="pill" ' +
           (isPill ? 'checked' : '') +
           '>tabletka</label>' +
@@ -674,7 +812,9 @@ class PerioderCalendarCardEditor extends HTMLElement {
       '.field input[type=text]{width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);}' +
       '.hint{font-size:12px;color:var(--secondary-text-color);margin-bottom:8px;}' +
       '.row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--divider-color);}' +
-      '.row .name{flex:1;font-size:13px;color:var(--primary-text-color);}' +
+      '.row .name{flex:1;min-width:0;font-size:13px;color:var(--primary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}' +
+      '.row .label{width:110px;flex:none;font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);}' +
+      '.row .label:disabled{opacity:0.4;}' +
       '.row .color{width:24px;height:24px;padding:0;border:none;border-radius:4px;cursor:pointer;}' +
       '.row .reset{background:none;border:none;cursor:pointer;color:var(--secondary-text-color);}' +
       '.pill-toggle{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--secondary-text-color);}' +
@@ -682,7 +822,7 @@ class PerioderCalendarCardEditor extends HTMLElement {
       '<div class="field"><label>Titulek karty</label><input type="text" class="title" value="' +
       (cfg.title || '') +
       '"></div>' +
-      '<div class="hint">Barvy jsou jen doporučení, klidně je přebij. "tabletka" smí být zaškrtnutá jen u jedné entity - vykreslí se jako ikonka na dni místo pruhu.</div>' +
+      '<div class="hint">Barvy jsou jen doporučení, klidně je přebij. Popisek nech prázdný a karta si název zkrátí sama (odřízne prefix společný všem vybraným kalendářům). "tabletka" smí být zaškrtnutá jen u jedné entity - vykreslí se jako ikonka na dni místo pruhu.</div>' +
       '<div class="rows">' +
       rowsHtml +
       '</div>';
@@ -697,6 +837,7 @@ class PerioderCalendarCardEditor extends HTMLElement {
         this._setColor(entityId, defaultColor);
         row.querySelector('.color').value = defaultColor;
       });
+      row.querySelector('.label').addEventListener('change', (e) => this._setName(entityId, e.target.value));
       row.querySelector('.pill').addEventListener('change', (e) => this._setPill(entityId, e.target.checked));
     });
   }

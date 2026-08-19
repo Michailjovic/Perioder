@@ -131,6 +131,14 @@ pill_entity: calendar.alina_pill_calendar
   calendar entity (period = red, fertile = blue, pause = purple, pms =
   orange), so it looks reasonable and meaningfully color-differentiated
   even without a single line of configuration.
+- `name` (per entity) and `pill_name` are optional label overrides. Without
+  them the card shortens labels itself: it strips the prefix that **all**
+  calendars on the card share (`"Alina Calendar - period"` ->
+  `"period"`), cutting back only to a separator (` - `, `: `, ` | `, ...)
+  so unrelated names are never truncated mid-word. Rationale (added
+  2026-08-19 after live feedback): a prefix carried by every entity on the
+  card conveys nothing to the reader, and horizontal space is the scarcest
+  resource in a month grid - one bar is one seventh of the card wide.
 - `pill_entity`: an optional special slot. Its events are **never** counted
   toward the "how many fit in the day cell" limit - it's always shown as a
   small 💊 icon, regardless of how many other blocks that day has. This
@@ -148,6 +156,12 @@ pill_entity: calendar.alina_pill_calendar
   the 2026-08-13 conversation). The bar's color comes from the given
   category, the text uses a darker shade of the same color family
   (contrast, same convention as the rest of the Perioder UI).
+  A block spanning several weeks repeats its label on **every** week row it
+  covers (added 2026-08-19 - originally only the starting week was labeled,
+  which left the following rows as anonymous colored stripes). A continued
+  segment is marked with a `‹` chevron instead of the category icon and has
+  no colored left cap, so the cap unambiguously means "the block starts
+  here" - same convention as Google Calendar's month view.
 
 ### Card configuration editor - two-tier visibility control (decided 2026-08-13)
 

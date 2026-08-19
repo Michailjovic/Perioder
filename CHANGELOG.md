@@ -5,6 +5,43 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.35] - 2026-08-19
+
+### Fixed
+
+- `perioder-calendar-card`: a block spanning a week boundary now repeats
+  its label on every week row it covers. Previously only the week the
+  block *started* in was labeled (`seg.isStart`), so a period/fertile
+  window/pack pause running into the next week showed up there as an
+  unlabeled colored stripe - the reader had to look up to the previous
+  row to work out what it was. Same convention as Google Calendar's month
+  view. A continued segment is marked by a `‹` chevron in place of the
+  category icon and drops the colored left cap, so that cap now
+  unambiguously means "this is where the block starts"; it also drops the
+  cap's 3px and uses a tighter icon gap, because a continuation is very
+  often only one column wide (a block ending on a Monday) and that is
+  exactly where label space is scarcest.
+
+### Changed
+
+- `perioder-calendar-card`: labels on the legend chips and the event bars
+  are auto-shortened by stripping the prefix that all calendars on the
+  card share - `"Alina Calendar - period"` renders as `"period"`. That
+  prefix is identical for every entity on the card, so it carries no
+  information for the reader while eating horizontal space, which is the
+  scarcest resource in a month grid (one bar is one seventh of the card
+  wide). The prefix is only cut back to a separator (` - `, ` – `, `: `,
+  ` | `, ` / `), never mid-word, so a set like "Cycle A"/"Cycle B" keeps
+  its full names; with fewer than two calendars nothing is stripped. The
+  full `friendly_name` is still available as the legend chip's tooltip.
+- `perioder-calendar-card`: new optional `name:` (per entity) and
+  `pill_name:` config options override that automatic label. The visual
+  editor gained a text field per calendar whose placeholder shows the
+  automatic label, so leaving it empty keeps the auto-shortening.
+- `perioder-calendar-card`: entity names, event summaries and the card
+  title are now HTML-escaped before being inserted into the card's
+  markup (`esc()`), instead of being concatenated in raw.
+
 ## [0.9.34] - 2026-08-19
 
 ### Changed
