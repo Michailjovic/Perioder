@@ -125,6 +125,12 @@ class PerioderCalendarCard extends HTMLElement {
     this._events = {};
     this._expandedDay = null;
     this._fetchToken = 0;
+    // v0.9.33: runtime-only legend toggle state (which entities are
+    // hidden right now) - like the built-in calendar card's per-entity
+    // checkboxes, this is a view preference, not something written back
+    // to the dashboard config, so it resets on page reload. Keyed by
+    // entity_id (works for both category entities and pill_entity).
+    this._hiddenEntities = new Set();
   }
 
   setConfig(config) {
@@ -263,21 +269,23 @@ class PerioderCalendarCard extends HTMLElement {
 
   _renderDetail(dateStr) {
     const rows = [];
-    (this._config.entities || []).forEach((entCfg) => {
-      const events = this._events[entCfg.entity] || [];
-      events.forEach((ev) => {
-        const start = eventDateStr(ev.start);
-        const end = eventDateStr(ev.end);
-        if (start <= dateStr && dateStr < end) {
-          rows.push({
-            color: entCfg.color || DEFAULT_COLORS[0],
-            icon: entCfg.icon || guessIcon(entCfg.entity),
-            text: ev.summary || this._entityName(entCfg.entity),
-          });
-        }
+    (this._config.entities || [])
+      .filter((entCfg) => !this._hiddenEntities.has(entCfg.entity))
+      .forEach((entCfg) => {
+        const events = this._events[entCfg.entity] || [];
+        events.forEach((ev) => {
+          const start = eventDateStr(ev.start);
+          const end = eventDateStr(ev.end);
+          if (start <= dateStr && dateStr < end) {
+            rows.push({
+              color: entCfg.color || DEFAULT_COLORS[0],
+              icon: entCfg.icon || guessIcon(entCfg.entity),
+              text: ev.summary || this._entityName(entCfg.entity),
+            });
+          }
+        });
       });
-    });
-    if (this._config.pill_entity) {
+    if (this._config.pill_entity && !this._hiddenEntities.has(this._config.pill_entity)) {
       const events = this._events[this._config.pill_entity] || [];
       events.forEach((ev) => {
         const start = eventDateStr(ev.start);
@@ -287,25 +295,32 @@ class PerioderCalendarCard extends HTMLElement {
         }
       });
     }
-    if (rows.length === 0) {
-      return '<div class="detail"><span class="empty">Žádné události</span></div>';
-    }
-    return (
-      '<div class="detail">' +
-      rows
-        .map(
-          (r) =>
-            '<div class="detail-row"><ha-icon icon="' +
-            r.icon +
-            '" style="color:' +
-            r.color +
-            ';"></ha-icon><span>' +
-            r.text +
-            '</span></div>'
-        )
-        .join('') +
-      '</div>'
-    );
+    const dateLabel = (() => {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.getDate() + '. ' + MONTH_NAMES[d.getMonth()].toLowerCase() + ' ' + d.getFullYear();
+    })();
+    const rowsHtml =
+      rows.length === 0
+        ? '<span class="empty">Žádné události</span>'
+        : rows
+            .map(
+              (r) =>
+                '<div class="detail-row"><ha-icon icon="' +
+                r.icon +
+                '" style="color:' +
+                r.color +
+                ';"></ha-icon><span>' +
+                r.text +
+                '</span></div>'
+            )
+            .join('');
+    return '<div class="detail"><div class="detail-date">' + dateLabel + '</div>' + rowsHtml + '</div>';
+  }
+
+  _toggleHidden(entityId) {
+    if (this._hiddenEntities.has(entityId)) this._hiddenEntities.delete(entityId);
+    else this._hiddenEntities.add(entityId);
+    this._render();
   }
 
   _render() {
@@ -315,7 +330,22 @@ class PerioderCalendarCard extends HTMLElement {
     const todayStr = fmtDate(new Date());
     const catEntities = cfg.entities || [];
     const pillEntity = cfg.pill_entity;
+    const hidden = this._hiddenEntities;
+    // v0.9.33: only entities the legend hasn't toggled off actually get a
+    // lane row - keeps bars packed with no gap left behind by a hidden
+    // category, same "hide via legend" UX as the built-in calendar card's
+    // per-entity checkboxes (default colors/lane-count still key off the
+    // *full* list below so toggling one entity off doesn't reflow colors).
+    const visibleCat = catEntities.filter((e) => !hidden.has(e.entity));
 
+    // v0.9.33 grid rewrite: day numbers and event bars used to be two
+    // separate CSS grids stacked with a margin between them, which read as
+    // two disconnected pieces (day numbers "floating" above bars that
+    // visually belonged to no particular row). Both now live in ONE grid
+    // per week: row 1 = day cells (which span every row via `grid-row:1/-1`
+    // in CSS so their border/background reaches down behind that day's
+    // bars, like a real calendar cell), rows 2+ = event bars. Clicking
+    // anywhere in a day's column (not just the number) expands that day.
     let gridHtml = '';
     weeks.forEach((week) => {
       let dayCellsHtml = '';
@@ -324,11 +354,15 @@ class PerioderCalendarCard extends HTMLElement {
         const inMonth = date.getMonth() === this._viewMonth;
         const isToday = dateStr === todayStr;
         const isWeekend = i >= 5;
-        const hasPill = pillEntity && this._dayHasEvent(pillEntity, dateStr);
+        const isSelected = this._expandedDay === dateStr;
+        const hasPill = pillEntity && !hidden.has(pillEntity) && this._dayHasEvent(pillEntity, dateStr);
         dayCellsHtml +=
           '<div class="day' +
           (inMonth ? '' : ' outside') +
-          '" data-date="' +
+          (isSelected ? ' selected' : '') +
+          '" style="grid-column:' +
+          (i + 1) +
+          ';" data-date="' +
           dateStr +
           '"><span class="daynum' +
           (isToday ? ' today' : '') +
@@ -340,37 +374,74 @@ class PerioderCalendarCard extends HTMLElement {
           '</div>';
       });
 
-      let lanesHtml = '';
-      catEntities.forEach((entCfg, laneIdx) => {
-        const color = entCfg.color || DEFAULT_COLORS[laneIdx % DEFAULT_COLORS.length];
+      // v0.9.33: pack bars into as few lane rows as possible *for this
+      // specific week*, instead of giving every category a permanently
+      // reserved row across the whole month. Period/fertile window/pause
+      // rarely overlap each other on the same days, so a fixed per-category
+      // lane wasted a lot of vertical space on weeks with only one active
+      // bar (2-3 empty reserved rows every week). Classic greedy interval
+      // scheduling: sort segments left-to-right, drop each into the first
+      // lane whose last-placed segment ends before this one starts.
+      const weekSegments = [];
+      visibleCat.forEach((entCfg) => {
+        const fullIdx = catEntities.indexOf(entCfg);
+        const color = entCfg.color || DEFAULT_COLORS[fullIdx % DEFAULT_COLORS.length];
         const icon = entCfg.icon || guessIcon(entCfg.entity);
         this._segmentsForWeek(entCfg.entity, week).forEach((seg) => {
-          let radius = '0';
-          if (seg.isStart && seg.isEnd) radius = '8px';
-          else if (seg.isStart) radius = '8px 0 0 8px';
-          else if (seg.isEnd) radius = '0 8px 8px 0';
-          lanesHtml +=
-            '<div class="bar" style="grid-column:' +
-            (seg.startCol + 1) +
-            ' / ' +
-            (seg.endCol + 2) +
-            '; grid-row:' +
-            (laneIdx + 1) +
-            '; background:' +
-            hexTint(color) +
-            '; border-left-color:' +
-            color +
-            '; border-radius:' +
-            radius +
-            ';">' +
-            (seg.isStart
-              ? '<ha-icon icon="' + icon + '" style="color:' + color + ';"></ha-icon><span>' + this._entityName(entCfg.entity) + '</span>'
-              : '') +
-            '</div>';
+          weekSegments.push(Object.assign({ color, icon, name: this._entityName(entCfg.entity) }, seg));
         });
       });
+      weekSegments.sort((a, b) => a.startCol - b.startCol || b.endCol - b.startCol - (a.endCol - a.startCol));
+      const laneEnds = [];
+      weekSegments.forEach((seg) => {
+        let lane = laneEnds.findIndex((endCol) => endCol < seg.startCol);
+        if (lane === -1) {
+          lane = laneEnds.length;
+          laneEnds.push(seg.endCol);
+        } else {
+          laneEnds[lane] = seg.endCol;
+        }
+        seg.lane = lane;
+      });
+      const weekLaneCount = laneEnds.length;
 
-      gridHtml += '<div class="week"><div class="daynums">' + dayCellsHtml + '</div><div class="lanes">' + lanesHtml + '</div></div>';
+      let lanesHtml = '';
+      weekSegments.forEach((seg) => {
+        let radius = '0';
+        if (seg.isStart && seg.isEnd) radius = '8px';
+        else if (seg.isStart) radius = '8px 0 0 8px';
+        else if (seg.isEnd) radius = '0 8px 8px 0';
+        lanesHtml +=
+          '<div class="bar" style="grid-column:' +
+          (seg.startCol + 1) +
+          ' / ' +
+          (seg.endCol + 2) +
+          '; grid-row:' +
+          (seg.lane + 2) +
+          '; background:' +
+          hexTint(seg.color) +
+          '; border-left-color:' +
+          seg.color +
+          '; border-radius:' +
+          radius +
+          ';">' +
+          (seg.isStart
+            ? '<ha-icon icon="' + seg.icon + '" style="color:' + seg.color + ';"></ha-icon><span>' + seg.name + '</span>'
+            : '') +
+          '</div>';
+      });
+
+      gridHtml +=
+        '<div class="week" style="grid-template-rows:26px repeat(' +
+        Math.max(weekLaneCount, 1) +
+        ',18px);">' +
+        dayCellsHtml +
+        lanesHtml +
+        '</div>';
+
+      if (this._expandedDay && week.some((d) => fmtDate(d) === this._expandedDay)) {
+        gridHtml += this._renderDetail(this._expandedDay);
+      }
     });
 
     const legendHtml =
@@ -378,22 +449,37 @@ class PerioderCalendarCard extends HTMLElement {
         .map((entCfg, i) => {
           const color = entCfg.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
           const icon = entCfg.icon || guessIcon(entCfg.entity);
+          const isOff = hidden.has(entCfg.entity);
           return (
-            '<span class="chip" style="background:' +
+            '<button type="button" class="chip' +
+            (isOff ? ' chip-off' : '') +
+            '" data-toggle="' +
+            entCfg.entity +
+            '" style="background:' +
             hexTint(color) +
-            ';"><ha-icon icon="' +
+            ';" aria-pressed="' +
+            (!isOff) +
+            '"><ha-icon icon="' +
             icon +
             '" style="color:' +
             color +
             ';"></ha-icon>' +
             this._entityName(entCfg.entity) +
-            '</span>'
+            '</button>'
           );
         })
         .join('') +
-      (pillEntity ? '<span class="chip pill-chip"><ha-icon icon="mdi:pill"></ha-icon>' + this._entityName(pillEntity) + '</span>' : '');
-
-    const detailHtml = this._expandedDay ? this._renderDetail(this._expandedDay) : '';
+      (pillEntity
+        ? '<button type="button" class="chip pill-chip' +
+          (hidden.has(pillEntity) ? ' chip-off' : '') +
+          '" data-toggle="' +
+          pillEntity +
+          '" aria-pressed="' +
+          !hidden.has(pillEntity) +
+          '"><ha-icon icon="mdi:pill"></ha-icon>' +
+          this._entityName(pillEntity) +
+          '</button>'
+        : '');
 
     this.shadowRoot.innerHTML =
       '<style>' +
@@ -401,25 +487,33 @@ class PerioderCalendarCard extends HTMLElement {
       '.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}' +
       '.header .title{font-size:16px;font-weight:500;color:var(--primary-text-color);}' +
       '.header .nav{display:flex;align-items:center;gap:2px;font-size:13px;color:var(--primary-text-color);}' +
-      '.header button{background:none;border:none;cursor:pointer;color:var(--primary-text-color);padding:4px;display:flex;}' +
-      '.legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}' +
-      '.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:4px 10px 4px 8px;border-radius:999px;color:var(--primary-text-color);}' +
+      '.header button{background:none;border:none;cursor:pointer;color:var(--primary-text-color);padding:4px;display:flex;border-radius:6px;}' +
+      '.header button:hover{background:var(--secondary-background-color);}' +
+      '.legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}' +
+      '.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:4px 10px 4px 8px;border-radius:999px;color:var(--primary-text-color);border:none;font-family:inherit;cursor:pointer;opacity:1;transition:opacity .15s ease;}' +
+      '.chip:hover{opacity:0.8;}' +
+      '.chip:focus-visible{outline:2px solid var(--primary-color);outline-offset:1px;}' +
+      '.chip.chip-off{opacity:0.4;}' +
       '.chip.pill-chip{background:rgba(var(--rgb-primary-color,3,169,244),0.15);}' +
       '.chip ha-icon,.bar ha-icon,.pill-badge{--mdc-icon-size:14px;}' +
-      '.weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;}' +
-      '.weekdays span{font-size:12px;text-align:center;color:var(--secondary-text-color);}' +
-      '.week{margin-bottom:4px;}' +
-      '.daynums{display:grid;grid-template-columns:repeat(7,1fr);column-gap:2px;}' +
-      '.day{position:relative;padding:2px 4px;cursor:pointer;}' +
+      '.month-grid{border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;}' +
+      '.weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:var(--secondary-background-color);border-bottom:1px solid var(--divider-color);}' +
+      '.weekdays span{font-size:11px;text-transform:uppercase;letter-spacing:.02em;text-align:center;color:var(--secondary-text-color);padding:6px 0;}' +
+      '.week{position:relative;display:grid;grid-template-columns:repeat(7,1fr);column-gap:2px;row-gap:3px;padding-top:2px;border-bottom:1px solid var(--divider-color);}' +
+      '.week:last-of-type{border-bottom:none;}' +
+      '.day{position:relative;grid-row:1 / -1;padding:4px;cursor:pointer;border-right:1px solid var(--divider-color);transition:background .1s ease;}' +
+      '.day:hover{background:var(--secondary-background-color);}' +
+      '.day.selected{background:rgba(var(--rgb-primary-color,3,169,244),0.12);box-shadow:inset 0 0 0 1px var(--primary-color);border-radius:4px;}' +
+      '.day:nth-child(7n){border-right:none;}' +
       '.day.outside{opacity:0.35;}' +
       '.daynum{font-size:12px;color:var(--primary-text-color);}' +
       '.daynum.weekend{color:var(--secondary-text-color);}' +
       '.daynum.today{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:999px;background:var(--primary-color);color:var(--text-primary-color);}' +
-      '.pill-badge{position:absolute;top:1px;right:2px;color:var(--primary-color);}' +
-      '.lanes{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:18px;column-gap:2px;row-gap:3px;margin-top:3px;}' +
-      '.bar{display:flex;align-items:center;gap:4px;height:18px;font-size:10px;font-weight:500;padding-left:5px;border-left:3px solid;overflow:hidden;white-space:nowrap;color:var(--primary-text-color);}' +
+      '.pill-badge{position:absolute;top:4px;right:4px;color:var(--primary-color);}' +
+      '.bar{display:flex;align-items:center;gap:4px;height:18px;font-size:10px;font-weight:500;padding-left:5px;border-left:3px solid;overflow:hidden;white-space:nowrap;color:var(--primary-text-color);pointer-events:none;}' +
       '.bar span{overflow:hidden;text-overflow:ellipsis;}' +
-      '.detail{margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--secondary-background-color);font-size:13px;}' +
+      '.detail{margin:2px 2px 6px;padding:8px 10px;border-radius:8px;background:var(--secondary-background-color);font-size:13px;}' +
+      '.detail-date{font-weight:500;color:var(--primary-text-color);margin-bottom:4px;}' +
       '.detail-row{display:flex;align-items:center;gap:6px;padding:2px 0;color:var(--primary-text-color);}' +
       '.detail-row ha-icon{--mdc-icon-size:16px;}' +
       '.detail .empty{color:var(--secondary-text-color);}' +
@@ -442,15 +536,19 @@ class PerioderCalendarCard extends HTMLElement {
       '<div class="legend">' +
       legendHtml +
       '</div>' +
+      '<div class="month-grid">' +
       '<div class="weekdays">' +
       WEEKDAY_NAMES.map((w) => '<span>' + w + '</span>').join('') +
       '</div>' +
       gridHtml +
-      detailHtml +
+      '</div>' +
       '</ha-card>';
 
     this.shadowRoot.querySelectorAll('button[data-nav]').forEach((btn) => {
       btn.addEventListener('click', () => this._changeMonth(parseInt(btn.dataset.nav, 10)));
+    });
+    this.shadowRoot.querySelectorAll('.chip[data-toggle]').forEach((btn) => {
+      btn.addEventListener('click', () => this._toggleHidden(btn.dataset.toggle));
     });
     this.shadowRoot.querySelectorAll('.day').forEach((el) => {
       el.addEventListener('click', () => {

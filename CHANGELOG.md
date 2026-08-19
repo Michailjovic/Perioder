@@ -5,6 +5,46 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.33] - 2026-08-19
+
+### Changed
+
+- `perioder-calendar-card`: vizuální a interakční přestavba po zpětné
+  vazbě z prvního živého vyzkoušení ("opticky rozpadnuté", chybějící
+  klikatelnost). Přepracováno s myšlenkou, že tuhle kartu můžou chtít
+  používat i lidé bez návaznosti na Perioder jako obecný kalendář:
+  - **Jedna souvislá mřížka místo dvou.** Čísla dnů a pruhy událostí dřív
+    žily ve dvou oddělených CSS gridech s mezerou mezi nimi, což
+    vypadalo jako dva nesouvisející kusy. Teď je to jeden grid na
+    týden - den je skutečná ohraničená buňka (jde přes celou výšku
+    týdne včetně řádků s pruhy), navíc s viditelnými linkami mřížky
+    (svislé mezi sloupci, vodorovné mezi týdny, zaoblený rámeček okolo
+    celého měsíce) - vypadá jako "opravdový" kalendář, ne jako čísla s
+    barevnými proužky poblíž.
+  - **Chytřejší skládání pruhů (packing).** Dřív měla každá kategorie
+    napevno svůj řádek po celý měsíc, i ve týdnech, kde se s ničím
+    nepřekrývala - zbytečně to zabíralo místo (2-3 prázdné řádky v
+    týdnech s jedním aktivním pruhem). Teď se pruhy pro každý týden
+    balí zvlášť (klasický greedy interval scheduling - stejný princip
+    jako Google Calendar), takže týden dostane jen tolik řádků, kolik
+    se v něm reálně překrývá.
+  - **Legenda nahoře je teď klikatelná.** Kliknutí na "chip" v legendě
+    schová/zobrazí danou kategorii (i tabletku) v celém kalendáři -
+    stejná myšlenka jako checkboxy u vestavěné HA karty, jen o úroveň
+    výš (ovládá to admin karty v editoru, jestli entita "smí" být
+    vůbec nabídnutá; runtime legenda pak jen přepíná viditelnost v
+    rámci toho). Skrytá kategorie zprůhlední a přeškrtne se v legendě.
+    Je to jen zobrazovací preference (v paměti karty), nezapisuje se
+    zpátky do YAML konfigurace.
+  - **Klik na den teď zjevně funguje a je vidět kde.** Celá buňka dne
+    (ne jen číslo) je klikatelná a po kliknutí se zvýrazní rámečkem;
+    detail dne se vykresluje přímo pod týdnem, do kterého den patří
+    (dřív se lepil na úplný konec celé karty, vizuálně nesouvisel s
+    kliknutým dnem).
+  - Ověřeno vizuálně přes headless Chromium (Playwright) s
+    fixture daty napodobujícími reálný dashboard - viz screenshoty v
+    konverzaci 2026-08-19, ne jen `node --check`.
+
 ## [0.9.32] - 2026-08-19
 
 ### Fixed
