@@ -146,6 +146,13 @@ class ConfirmPillTakenButton(ButtonEntity):
 
     async def async_press(self) -> None:
         await self._data.async_log_pill_taken(local_today())
+        # v0.9.34: re-check/reschedule immediately - a confirmed dose can
+        # decrement pills_in_stock past the low-stock threshold, or clear
+        # today's reminder/escalation, and neither should wait for the (now
+        # much coarser) _HEARTBEAT ceiling. Same pattern switch.py/select.py/
+        # time.py already use for their own settings.
+        if self._data.async_request_reschedule is not None:
+            await self._data.async_request_reschedule()
 
 
 class LogSymptomButton(ButtonEntity):

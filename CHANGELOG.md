@@ -5,6 +5,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.34] - 2026-08-19
+
+### Changed
+
+- Notification engine's `_HEARTBEAT` safety-net poll: 5 minutes -> 6
+  hours. It was justified as "the pack-running-low / stock-low checks
+  aren't otherwise time-anchored to anything", which turned out to be
+  wrong: pack-running-low only depends on today's date, already covered
+  by the existing midnight wake candidate, and stock-low only changes on
+  two explicit writes (a confirmed dose, or retyping
+  `number.*_pills_in_stock`) - see below. With those write paths now
+  rescheduling themselves immediately, nothing genuinely needs
+  5-minute polling; `_HEARTBEAT` is now purely a coarse fallback in case
+  a future write path forgets to call `async_request_reschedule()`, not
+  something that fires as routine operation. This also means the debug
+  `persistent_notification` (when `debug_notifications_enabled` is on)
+  stops refreshing every 5 minutes with "nic nového k odeslání".
+- `number.*_pills_in_stock` (`PillsInStockNumber.async_set_native_value`),
+  `button.*_confirm_pill_taken` (`ConfirmPillTakenButton.async_press`),
+  and the `perioder.set_pills_in_stock` service handler now call
+  `data.async_request_reschedule()` right after writing, same as
+  switch.py/select.py/time.py already did for their own settings. Before
+  this, a confirmed dose or a manual restock only got picked up by the
+  next heartbeat - harmless while that was 5 minutes, but would have
+  meant the stock-low warning could lag by up to 6 hours after this
+  change without this fix.
+
 ## [0.9.33] - 2026-08-19
 
 ### Changed

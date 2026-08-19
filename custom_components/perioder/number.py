@@ -67,3 +67,8 @@ class PillsInStockNumber(NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         await self._data.async_set_pills_in_stock(int(value))
+        # v0.9.34: re-check/reschedule immediately instead of waiting for
+        # the (now much coarser) _HEARTBEAT ceiling - same pattern
+        # switch.py/select.py/time.py already use for their own settings.
+        if self._data.async_request_reschedule is not None:
+            await self._data.async_request_reschedule()

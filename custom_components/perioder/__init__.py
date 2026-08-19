@@ -181,7 +181,7 @@ _ENTRY_TARGET_SCHEMA = {
     ),
 }
 
-_HEARTBEAT = timedelta(minutes=5)
+_HEARTBEAT = timedelta(hours=6)
 # v0.9.19: the notification engine no longer polls on a fixed interval at
 # all (0.9.18's 1-minute `async_track_time_interval` was a stopgap, not the
 # real fix). It now schedules exactly one `async_track_point_in_time` call
@@ -191,11 +191,24 @@ _HEARTBEAT = timedelta(minutes=5)
 # untouched) - and reschedules itself from scratch every time it runs, from
 # the fresh state left by that run. This is the difference between "roughly
 # every N minutes" (which is what a human reads as "randomly a few minutes
-# late") and firing at the literal configured second. `_HEARTBEAT` is only a
-# ceiling - nothing contraception-notification-specific ever needs a wake
-# sooner than that, but the plain "pack running low" / "stock low" checks
-# (not otherwise time-anchored to anything) still get re-evaluated at least
-# this often. See `_compute_next_check_at()` / `_async_run_and_reschedule()`.
+# late") and firing at the literal configured second.
+#
+# v0.9.34: `_HEARTBEAT` used to be 5 minutes, justified as "the plain 'pack
+# running low' / 'stock low' checks aren't otherwise time-anchored to
+# anything". That reasoning didn't actually hold: the pack-running-low
+# check only depends on today's date, already covered by the midnight
+# candidate below; the stock-low check only changes on two explicit writes
+# (a confirmed dose, or the admin retyping `number.*_pills_in_stock`) that
+# now call `data.async_request_reschedule()` themselves (see number.py,
+# button.py's `ConfirmPillTakenButton`, and `handle_set_pills_in_stock`
+# below) - the same pattern switch.py/select.py/time.py already used for
+# their own settings. With every write path wired to reschedule itself
+# immediately, nothing left genuinely needs 5-minute polling; `_HEARTBEAT`
+# is now purely a coarse safety net against a future write path that
+# forgets to call `async_request_reschedule()` (self-healing, not routine
+# operation - see `_async_run_and_reschedule()`'s own docstring). Michael
+# asked for 6 hours as "bohatě stačí" for that role.
+# See `_compute_next_check_at()` / `_async_run_and_reschedule()`.
 
 
 # Key under which the shared (not per-entry) mobile_app_notification_action
@@ -418,7 +431,7 @@ def _compute_next_check_at(entry: ConfigEntry, data: PerioderData) -> tuple[date
     settings = get_settings(entry)
     notif_state = data.notifications
     candidates: list[tuple[datetime, str]] = [
-        (now + _HEARTBEAT, "pravidelná kontrola (nejdéle za 5 min)"),
+        (now + _HEARTBEAT, "pravidelná kontrola (nejdéle za 6 h, jen záložní síť)"),
         (_next_local_midnight(now), "půlnoc (přechod na nový den)"),
     ]
 
@@ -1091,6 +1104,11 @@ def _async_register_services(hass: HomeAssistant) -> None:
     async def handle_set_pills_in_stock(call: ServiceCall) -> None:
         data = _get_entry_data(hass, call.data["config_entry_id"])
         await data.async_set_pills_in_stock(call.data["value"])
+        # v0.9.34: re-check/reschedule immediately - same reasoning as
+        # number.py's PillsInStockNumber and button.py's
+        # ConfirmPillTakenButton, see _HEARTBEAT's docstring above.
+        if data.async_request_reschedule is not None:
+            await data.async_request_reschedule()
 
     hass.services.async_register(
         DOMAIN,
