@@ -5,6 +5,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/); see `ANALYZA-A-ROADMAP.md`
 section 8 for what the pre-1.0.0 range means for this project specifically.
 
+## [0.9.36] - 2026-08-22
+
+### Fixed
+
+- `perioder-calendar-card`: legend chip toggles and day-cell expand/collapse
+  were unreliable in live use - usually needing two or three clicks to
+  register. Root cause: the card's `hass` setter called a full `_render()`
+  (which tears down and rebuilds the entire shadow DOM from scratch) on
+  *every* push of a new `hass` object, and Home Assistant pushes a new
+  `hass` object on every state-changed event system-wide - often several
+  times a second on a live instance, regardless of whether anything this
+  card actually shows changed (its calendar events come from a separate
+  REST fetch, never from `hass.states`). A push landing between the user's
+  pointerdown and click - routine given that frequency - replaced the
+  button/day-cell element out from under the in-flight click, and the
+  click was silently dropped. Fixed by only re-rendering from the `hass`
+  setter when the `friendly_name` of a listed entity actually changed;
+  every other push now just updates the stored `hass` reference without
+  touching the DOM. Verified with a headless-Chromium test asserting the
+  clicked DOM node survives 20 unrelated `hass` pushes (fails against the
+  pre-fix code, passes after).
+
 ## [0.9.35] - 2026-08-19
 
 ### Fixed

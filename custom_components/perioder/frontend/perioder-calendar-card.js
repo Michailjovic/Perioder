@@ -30,6 +30,23 @@
  * "period"), because that prefix is identical for every entity here and only
  * eats space; `name:` per entity (and `pill_name:`) overrides it.
  *
+ * v0.9.36 fix (2026-08-22): live feedback - toggling a legend chip or
+ * expanding a day "didn't work reliably", usually needing ~3 clicks to
+ * register. Root cause: the `hass` setter called `_render()` on *every*
+ * single push, and Home Assistant's frontend pushes a new `hass` object on
+ * every state-changed event system-wide - often several times a second on a
+ * live instance, completely unrelated to anything this card shows (this
+ * card's own calendar *events* come from a separate REST fetch, never from
+ * `hass.states`). `_render()` tears down and rebuilds the entire shadow DOM
+ * from a fresh `innerHTML` string, so any push landing between the user's
+ * pointerdown and click - which, given that push frequency, was routinely
+ * the case - replaced the button/day-cell element out from under the
+ * in-flight click, and the browser silently dropped it. Fixed by only
+ * calling `_render()` from the `hass` setter when something the card
+ * actually reads off `hass.states` (the `friendly_name` of a listed entity)
+ * has actually changed; every other push now just updates `this._hass`
+ * (so the next real render still sees fresh state) without touching the DOM.
+ *
  * Two problems this exists to solve (see calendar.py's own docstring +
  * CALENDAR-CARD-ADR.md for the full history):
  *   1. The built-in card can't pin a fixed color per calendar entity -
@@ -199,10 +216,41 @@ class PerioderCalendarCard extends HTMLElement {
 
   set hass(hass) {
     const hadHass = !!this._hass;
+    const prevHass = this._hass;
     this._hass = hass;
     if (!this._config) return;
-    if (!hadHass) this._fetchEvents();
-    else this._render();
+    if (!hadHass) {
+      this._fetchEvents();
+      return;
+    }
+    // v0.9.36: see module docstring "v0.9.36 fix" - only re-render on a
+    // hass push if it actually changed something this card draws, instead
+    // of tearing down/rebuilding the whole shadow DOM on every push (which
+    // was eating in-flight clicks on the legend chips / day cells).
+    if (this._relevantHassChanged(prevHass, hass)) this._render();
+  }
+
+  /**
+   * v0.9.36: true only if the `friendly_name` of an entity this card
+   * actually lists (categories + pill_entity) changed between two `hass`
+   * pushes. That is the *only* thing this card reads off `hass.states` -
+   * calendar events themselves come from `_fetchEvents()`'s REST call, not
+   * from `hass` - so this correctly filters out the vast majority of hass
+   * pushes (every other entity's state changing anywhere in the system),
+   * which previously forced a full, click-eating re-render for no visible
+   * change at all.
+   */
+  _relevantHassChanged(prevHass, hass) {
+    if (!prevHass) return true;
+    const ids = (this._config.entities || []).map((e) => e.entity);
+    if (this._config.pill_entity) ids.push(this._config.pill_entity);
+    return ids.some((id) => {
+      const before = prevHass.states[id];
+      const after = hass.states[id];
+      const beforeName = before && before.attributes.friendly_name;
+      const afterName = after && after.attributes.friendly_name;
+      return beforeName !== afterName;
+    });
   }
 
   getCardSize() {
